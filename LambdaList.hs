@@ -24,10 +24,7 @@ import System.Console.ANSI  (clearScreen)
 
 -- TODOS:
 --
--- --> Inactive counters on skipping
--- --> Make new File on no list found
--- --> Replicate empty rows in latex file
--- --> Fix LaTeX errors
+-- --> Fix Inactive counter
 -- --> Fix rounding errors for negative balances
 
 -- NICE TO HAVES:
@@ -38,24 +35,27 @@ import System.Console.ANSI  (clearScreen)
 
 type Name       = String
 type Counter    = Int
-type Default    = Bool
+type Flag       = Bool
 
 data NInterp    = NNull | NNothing
-data TColor     = TBlue | TGreen | TRed | TYellow
-data Trinker    = Trinker Name Guthaben Counter
+data TColor     = TBlau | TGruen | TRot | TGelb
+data Trinker    = Trinker Name Guthaben Counter Flag
 data Guthaben   = Guthaben Int
 
 instance Eq Trinker where
-    (Trinker a _ _) == (Trinker x _ _) = (a == x)
+    (Trinker a _ _ _) == (Trinker x _ _ _) = (a == x)
 
 instance Ord Trinker where
-    compare (Trinker a _ _)  (Trinker x _ _) = compare a x
+    compare (Trinker a _ _ _)  (Trinker x _ _ _) = compare a x
 
 instance Show Guthaben where
     show (Guthaben n) = (show (div n 100)) ++ "." ++ (reverse . (take 2) . reverse) (show n)
 
 instance Show Trinker where
-    show (Trinker a b c) = intercalate ";" [a, (show b), (show c)]
+    show (Trinker a b c f) = intercalate ";" updatedWerte
+        where
+          updatedWerte = if not f then [a, (show b), (show (c+1))]
+                                  else [a, (show b), (show c)]
 
 -- Datei - Ein- und Ausgabe
 
@@ -64,44 +64,44 @@ parseListe fp = do a <- readFile fp
                    return $ map parseTrinker $ map (splitOn ";") (lines a)
     where
       parseTrinker :: [String] -> Trinker
-      parseTrinker [x,y,z] = case (cleanGuthaben y) of Just u  -> case readInt NNothing z of Just k  -> Trinker x (Guthaben u) k
+      parseTrinker [x,y,z] = case (cleanGuthaben y) of Just u  -> case readInt NNothing z of Just k  -> Trinker x (Guthaben u) k False
                                                                                              Nothing -> error $ "Parsingfehler bei Guthaben hier: " ++ z
                                                        Nothing -> error $ "Parsingfehler! Unkorrekter Betrag hier: " ++ concat [x,y,z]
       parseTrinker _       = error "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
 
 writeFiles :: [Trinker] -> IO()
 writeFiles trinker = let strinker = sort trinker in
-                         do writeFile "mateliste.txt" $ unlines $ map show (strinker)
-                            writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ (map toLaTeX (strinker)) ++ [latexFooter]
+                         do writeFile "mateliste.txt" $ unlines $ map show strinker
+                            writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ (map toLaTeX strinker) ++ [latexFooter]
 
 toLaTeX :: Trinker -> String
-toLaTeX (Trinker nm gb@(Guthaben b) _)
-    | b < (-1000) = "\\rowcolor{dunkelgrau}\n" ++ ltxrw
-    | b < 0       = "\\rowcolor{hellgrau}\n"   ++ ltxrw
-    | otherwise   =                               ltxrw
+toLaTeX (Trinker nm gb@(Guthaben b) _ _)
+    | b < -1000 = "\\rowcolor{dunkelgrau}\n" ++ latexRow
+    | b < 0     = "\\rowcolor{hellgrau}\n"   ++ latexRow
+    | otherwise =                               latexRow
       where
-        ltxrw :: String
-        ltxrw = nm ++ "&" ++ (show gb) ++ "& & & & & & \\ \n \\hline"
+        latexRow :: String
+        latexRow = nm ++ "&" ++ (show gb) ++ "& & & & & & \\\\\n\\hline"
 
 latexHeader :: String
-latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[utf8]{inputenc}"
-              ++ "\\usepackage{german}\n\\usepackage{longtable}\n\\usepackage{eurosym}"
+latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[utf8]{inputenc}\n"
+              ++ "\\usepackage{german}\n\\usepackage{longtable}\n\\usepackage{eurosym}\n"
               ++ "\\usepackage{color}\n\\usepackage{colortbl}\n\\usepackage{geometry}"
               ++ "\n\\geometry{a4paper,left=0mm,right=0mm, top=0.25cm, bottom=0.25cm}"
-              ++ "\n\\definecolor{dunkelgrau}{rgb}{0.6,0.6,0.6}\n\\definecolor{hellgrau}{rgb}{0.8,0.8,0.8}"
+              ++ "\n\n\\definecolor{dunkelgrau}{rgb}{0.6,0.6,0.6}\n\\definecolor{hellgrau}{rgb}{0.8,0.8,0.8}\n"
               ++ "\n\\begin{document}\n\\begin{longtable}{|l|p{3cm}|p{5cm}|l|l|p{2cm}|p{2cm}|p{2cm}|}\n\\hline"
               ++ "\n\\textbf{Login} & Guthaben & Club Mate (0,90 \\euro) & Cola \\slash\\ Brause (0,70 \\euro)"
-              ++ "& Schokor. (0,50 \\euro) & 0,20 \\euro & 0,10 \\euro & 0,05 \\euro\n\\hline\n\\hline\n"
+              ++ "& Schokor. (0,50 \\euro) & 0,20 \\euro & 0,10 \\euro & 0,05 \\euro\\\\\n\\hline\n\\hline\n"
 
 latexFooter :: String
-latexFooter =  "\\end{longtable}\\bigskip"
-               ++ "\\begin{center} \n Neue Trinker tragen sich bitte im Stil vom TechFak-Login ein.\\\\"
-               ++ "(1. Buchstabe des Vornamens + 7 Buchstaben des Nachnamens (oder voller Nachname)) \\bigskip \\\\"
-               ++ "\\textbf{Je mehr Geld in der Kasse, desto schneller gibt es neue Getränke!} \\\\"
+latexFooter =  (concat $ replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{longtable}\\bigskip"
+               ++ "\n\\begin{center} \n Neue Trinker tragen sich bitte im Stil vom TechFak-Login ein.\\\\ \n"
+               ++ "\n(1. Buchstabe des Vornamens + 7 Buchstaben des Nachnamens (oder voller Nachname)) \\bigskip \\\\ \n"
+               ++ "\\textbf{Je mehr Geld in der Kasse, desto schneller gibt es neue Getränke!} \\\\ \n"
                ++ "\\textbf{Also seid so freundlich und übt bitte ein bisschen \\glqq peer pressure\\grqq\\ auf die Leute im Minus aus.}\n"
                ++ "\\end{center} \n \\end{document}"
 
--- Helferfunktionen und Trivialitäten
+-- Helferfunktionen und Trivialitäten:
 
 readInt :: NInterp -> String -> Maybe Int
 readInt NNull    "" = Just 0
@@ -109,19 +109,19 @@ readInt NNothing "" = Nothing
 readInt _        xs = case reads xs of [(n, "")] -> Just n
                                        _         -> Nothing
 
-showColor :: TColor -> String -> String
-showColor clr txt = case clr of TRed    -> "\x1b[31m" ++ txt ++ "\x1b[0m"
-                                TGreen  -> "\x1b[32m" ++ txt ++ "\x1b[0m"
-                                TYellow -> "\x1b[33m" ++ txt ++ "\x1b[0m"
-                                TBlue   -> "\x1b[34m" ++ txt ++ "\x1b[0m"
+showFarbe :: TColor -> String -> String
+showFarbe clr txt = case clr of TRot    -> "\x1b[31m" ++ txt ++ "\x1b[0m"
+                                TGruen  -> "\x1b[32m" ++ txt ++ "\x1b[0m"
+                                TGelb -> "\x1b[33m" ++ txt ++ "\x1b[0m"
+                                TBlau   -> "\x1b[34m" ++ txt ++ "\x1b[0m"
 
-showMoney :: Guthaben -> String
-showMoney gld@(Guthaben betr)
-    | (betr < 0) = showColor TRed   $ show gld
-    | otherwise  = showColor TGreen $ show gld
+showGuthaben :: Guthaben -> String
+showGuthaben gld@(Guthaben betr)
+    | (betr < 0) = showFarbe TRot   $ show gld
+    | otherwise  = showFarbe TGruen $ show gld
 
 showTrinkerInfo :: Trinker -> IO ()
-showTrinkerInfo (Trinker nm gld ctr) = putStrLn $ "\nDer User " ++ (showColor TBlue nm) ++ inac ++ " hat derzeit einen Kontostand von " ++ (showMoney gld) ++ "."
+showTrinkerInfo (Trinker nm gld ctr _) = putStrLn $ "\nDer User " ++ (showFarbe TBlau nm) ++ inac ++ " hat derzeit einen Kontostand von " ++ (showGuthaben gld) ++ "."
     where
       inac :: String
       inac = if ctr == 0 then "" else " (" ++ (show ctr) ++ " Mal inaktiv)"
@@ -136,9 +136,9 @@ parseGuthaben = undefined
 -- Hauptprogrammlogik:
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
-processTrinker (Trinker nm (Guthaben gld) cntr) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
-               = if null werte then do return $ Trinker nm (Guthaben gld)                          (cntr+1) -- increase "inactive" counter
-                               else do return $ Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        -- set new balance and reset counter
+processTrinker (Trinker nm (Guthaben gld) cntr _) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
+               = if null werte then do return $ Trinker nm (Guthaben gld)                          (cntr+1) True -- increase "inactive" counter
+                               else do return $ Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        True -- set new balance and reset counter
     where
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
@@ -157,38 +157,38 @@ getAmounts nm = mapM (abfrage nm) fragen
                           case readInt NNull x of Just n  -> return n
                                                   Nothing -> putStrLn "-- Eingabe unklar!" >> abfrage nm frg
 
-newTrinker :: IO Trinker
-newTrinker = do putStrLn "Neuer Trinker wird erstellt."
+neuTrinker :: IO Trinker
+neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                 x <- askName
-                y <- askDouble
-                putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: Trinker " ++ (showColor TBlue x) ++ " mit einem Kontostand von " ++ (showMoney (Guthaben y)) ++ "  "
+                y <- askKontostand
+                putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: Trinker " ++ (showFarbe TBlau x) ++ " mit einem Kontostand von " ++ (showGuthaben (Guthaben y)) ++ "  "
                 o <- getLine
-                if o == "ok" then return $ Trinker x (Guthaben y) 0 else putStrLn "Bestätigung nicht erhalten. Neuer Versuch:\n" >> newTrinker
+                if o == "ok" then return $ Trinker x (Guthaben y) 0 True else putStrLn "Bestätigung nicht erhalten. Neuer Versuch:\n" >> neuTrinker
                    where askName :: IO String
                          askName = do putStr "Bitte geben Sie einen Nicknamen ein: " ; n <- getLine
                                       case n of {"" -> askName ; x -> return x}
 
-                         askDouble :: IO Int
-                         askDouble = do putStr "Bitte geben Sie einen validen Kontostand ein: " ; l <- getLine
-                                        case readInt NNull l of {Just d -> return d ; _ -> askDouble}
+                         askKontostand :: IO Int
+                         askKontostand = do putStr "Bitte geben Sie einen validen Kontostand ein: " ; l <- getLine
+                                            case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
 
 listLoop :: IO [Trinker] -> Int -> IO ()
 listLoop xs i = do
                 as <- xs
                 if i >= length as 
-                   then do putStrLn $ "\n!! Sie haben das " ++ (showColor TYellow "Ende") ++ " der aktuellen Liste erreicht. !!"
+                   then do putStrLn $ "\n!! Sie haben das " ++ (showFarbe TGelb "Ende") ++ " der aktuellen Liste erreicht. !!"
                            putStr   $ "!! Bitte wählen sie aus: speichern/b(e)enden | (a)bbrechen | (n)euer Trinker | (z)urück : "
                            c <- getLine
-                           case head c of
-                                'e' -> do putStr "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
+                           case c of
+                                "e" -> do putStr "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
                                           if q == "ok" then writeFiles as else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
 
-                                'a' -> do putStr "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
+                                "a" -> do putStr "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
                                           if q == "ok" then putStrLn "Dann bis zum nächsten Mal! :)" else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
                                
-                                'n' -> do neu <- newTrinker ; listLoop (return (as ++ [neu])) (i)
+                                "n" -> do neu <- neuTrinker ; listLoop (return (as ++ [neu])) (i)
 
-                                'z' -> let z q = min (i-q) 0 in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                "z" -> let z q = min (i-q) 0 in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 _   -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
   
@@ -203,16 +203,16 @@ listLoop xs i = do
                                 "e"    -> do putStr "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
                                              if q == "ok" then writeFiles as else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
 
-                                "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ (showColor TBlue ((\(Trinker nm _ _) -> nm) tr)) ++ " aus der Liste entfernen: " ; q <- getLine
+                                "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ (showFarbe TBlau ((\(Trinker nm _ _ _) -> nm) tr)) ++ " aus der Liste entfernen: " ; q <- getLine
                                              if q == "ok" then listLoop (return ((take i as) ++ (drop (i+1) as))) i else listLoop xs i  
 
-                                "r"    -> do neu <- newTrinker ; listLoop (return ((take i as) ++ neu:(drop (i+2) as))) i
+                                "r"    -> do neu <- neuTrinker ; listLoop (return ((take i as) ++ neu:(drop (i+2) as))) i
 
                                 "b"    -> let foobar ti p = do putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: " ; q <- getLine
                                                                case q of "ok" -> listLoop (return ((take i as) ++ p : (drop (i+1) as))) (i+1)
                                                                          ""   -> foobar ti p
                                                                          _    -> putStr "Vorgang abgebrochen. Wiederhole:" >> listLoop xs i
-                                          in do p <- (\(Trinker a b c) -> (getAmounts a >>= processTrinker (Trinker a b c))) tr
+                                          in do p <- (\(Trinker name gth ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth ctr f))) tr
                                                 showTrinkerInfo p ; foobar tr p
 
                                 'v':as -> let z q = min (i+q) (length as) in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
@@ -231,4 +231,4 @@ main = do clearScreen
           f <- doesFileExist "mateliste.txt" 
           if f 
              then putStrLn " Liste gefunden!" >> listLoop (parseListe "mateliste.txt") 0
-             else putStrLn " keine Liste gefunden. Wollen Sie eine neue anlegen?"                                 --TODO: Make new file!
+             else putStrLn " keine Liste gefunden. Beim Beenden des Programms wird eine neue geschrieben werden." >> listLoop (return []) 0
