@@ -71,8 +71,11 @@ parseListe fp = do a <- readFile fp
 
 writeFiles :: [Trinker] -> IO()
 writeFiles trinker = let strinker = sort trinker in
-                         do writeFile "mateliste.txt" $ unlines $ map show strinker
+                         do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
+                            writeFile "mateliste.txt" $ unlines $ map show strinker
                             writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ (map toLaTeX strinker) ++ [latexFooter]
+                            putStrLn  "done!"
+                            putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
 toLaTeX :: Trinker -> String
 toLaTeX (Trinker nm gb@(Guthaben b) _ _)
@@ -225,7 +228,7 @@ main :: IO()
 main = do clearScreen
           hSetBuffering stdout NoBuffering
 
-          putStrLn "Willkommen, User!"
+          putStrLn "++ LambdaList v. 1.0 ++ \n\nWillkommen, User!"
           putStrLn "Dies ist ein automatisches Matelistenprogramm. Bitte beantworten Sie die Fragen auf dem Schirm."
           putStr   "Scanne Verzeichnis nach vorhandener mateliste.txt ... "
           f <- doesFileExist "mateliste.txt" 
