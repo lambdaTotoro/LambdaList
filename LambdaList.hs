@@ -24,8 +24,8 @@ import System.Console.ANSI  (clearScreen)
 
 -- TODOS:
 --
+-- --> Fix GuthabenInput
 -- --> Fix Inactive counter
--- --> Fix rounding errors for negative balances
 
 -- NICE TO HAVES:
 --
@@ -49,7 +49,16 @@ instance Ord Trinker where
     compare (Trinker a _ _ _)  (Trinker x _ _ _) = compare a x
 
 instance Show Guthaben where
-    show (Guthaben n) = (show (div n 100)) ++ "." ++ (reverse . (take 2) . reverse) (show n)
+    show (Guthaben n) = if (abs n) >= 100 then (reverse . (drop 2) . reverse) (show n) ++ "." ++ (reverse . (take 2) . reverse) (show n)
+                                          else zeig n
+        where
+          zeig :: Int -> String
+          zeig n
+             | n <= (-10) = "-0."  ++ (show . abs) n
+             | n < 0      = "-0.0" ++ (show . abs) n
+             | n >= 10    = "0."   ++ show n
+             | n > 0      = "0.0"  ++ show n
+             | otherwise  = "0.00" 
 
 instance Show Trinker where
     show (Trinker a b c f) = intercalate ";" updatedWerte
