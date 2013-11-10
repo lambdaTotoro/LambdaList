@@ -1,3 +1,4 @@
-example1;23.90;2
-example2;-9.15;8
-example3;0.0;2
+beispiel1;15.54;0
+beispiel2;-11.12;1
+beispiel3;0.00;4
+beispiel4;0.01;10
