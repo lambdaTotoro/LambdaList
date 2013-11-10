@@ -22,13 +22,7 @@ import System.IO
 import System.Directory     (doesFileExist)
 import System.Console.ANSI  (clearScreen)
 
--- TODOS:
---
--- --> Fix GuthabenInput
--- --> Fix Inactive counter
-
 -- NICE TO HAVES:
---
 -- --> implement, Question function, refactor
 
 -- Kung-Fu mit Typen
@@ -146,8 +140,8 @@ cleanGuthaben s = case readInt NNull $ filter (not . (flip elem ",.")) s
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
 processTrinker (Trinker nm (Guthaben gld) cntr _) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
-               = if null werte then do return $ Trinker nm (Guthaben gld)                          (cntr+1) True -- increase "inactive" counter
-                               else do return $ Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        True -- set new balance and reset counter
+               = if and $ map (==0) werte then do return $ Trinker nm (Guthaben gld)                          (cntr+1) True
+                                          else do return $ Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        True
     where
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
@@ -161,19 +155,9 @@ getAmounts nm = (mapM (abfrage nm) fragen)
       strichFragen nm amnt = "-- Wie viele Striche hat " ++ nm ++ " in der Spalte für " ++ amnt ++ " Cent? "
 
       abfrage :: Name -> String -> IO Int
-      abfrage nm frg = do putStr frg 
-                          x <- getLine
-                          case readInt NNull x of Just n  -> return n
-                                                  Nothing -> putStr "-- Eingabe unklar!" >> abfrage nm frg
+      abfrage nm frg = do putStr frg ; x <- getLine
+                          case readInt NNull x of {Just n  -> return n ; Nothing -> putStr "-- Eingabe unklar!" >> abfrage nm frg}
        
-      einzahlFrage :: Name -> IO Int
-      einzahlFrage nm = do putStr $ "\n-- Wie viel Geld hat " ++ nm ++ " eingezahlt? "
-                           x <- getLine
-                           if '.' `elem` x then case readInt NNull (filter (/= '.') x) of Just n  -> return n
-                                                                                          Nothing -> putStr "-- Eingabe unklar!" >> einzahlFrage nm
-                                           else case readInt NNull x                   of Just n  -> return (100 * n)
-                                                                                          Nothing -> putStr "-- Eingabe unklar!" >> einzahlFrage nm
-
 neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                 x <- askName
