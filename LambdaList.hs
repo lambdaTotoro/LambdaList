@@ -24,6 +24,7 @@ import System.Console.ANSI  (clearScreen)
 
 -- NICE TO HAVES:
 -- --> implement, Question function, refactor
+-- --> ausführliche Dokumentation
 
 -- Kung-Fu mit Typen
 
