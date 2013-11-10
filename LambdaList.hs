@@ -122,10 +122,10 @@ readInt _        xs = case reads xs of [(n, "")] -> Just n
                                        _         -> Nothing
 
 showFarbe :: TColor -> String -> String
-showFarbe clr txt = case clr of TRot    -> "\x1b[31m" ++ txt ++ "\x1b[0m"
-                                TGruen  -> "\x1b[32m" ++ txt ++ "\x1b[0m"
-                                TGelb -> "\x1b[33m" ++ txt ++ "\x1b[0m"
-                                TBlau   -> "\x1b[34m" ++ txt ++ "\x1b[0m"
+showFarbe clr txt = case clr of TRot   -> "\x1b[31m" ++ txt ++ "\x1b[0m"
+                                TGruen -> "\x1b[32m" ++ txt ++ "\x1b[0m"
+                                TGelb  -> "\x1b[33m" ++ txt ++ "\x1b[0m"
+                                TBlau  -> "\x1b[34m" ++ txt ++ "\x1b[0m"
 
 showGuthaben :: Guthaben -> String
 showGuthaben gld@(Guthaben betr)
@@ -142,9 +142,6 @@ cleanGuthaben :: String -> Maybe Int
 cleanGuthaben s = case readInt NNull $ filter (not . (flip elem ",.")) s
                        of {Just n -> Just n ; _ -> Nothing}
 
-parseGuthaben :: String 
-parseGuthaben = undefined
-
 -- Hauptprogrammlogik:
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
@@ -155,10 +152,10 @@ processTrinker (Trinker nm (Guthaben gld) cntr _) werte@[enzhlng, nnzg, sbzg, fn
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
 getAmounts :: Name -> IO [Int]
-getAmounts nm = mapM (abfrage nm) fragen
+getAmounts nm = (mapM (abfrage nm) fragen)
     where
       fragen :: [String]
-      fragen = ("\n-- Wie viel Geld hat " ++ nm ++ " eingezahlt? "):(map (strichFragen nm) ["90", "70", "50", "20", "10", " 5"])
+      fragen = ("-- Wie viel Geld hat " ++ nm ++ (showFarbe TGelb " in Cent" ++ " eingezahlt? ")):(map (strichFragen nm) ["90", "70", "50", "20", "10", " 5"])
      
       strichFragen :: Name -> String -> String
       strichFragen nm amnt = "-- Wie viele Striche hat " ++ nm ++ " in der Spalte für " ++ amnt ++ " Cent? "
@@ -167,7 +164,15 @@ getAmounts nm = mapM (abfrage nm) fragen
       abfrage nm frg = do putStr frg 
                           x <- getLine
                           case readInt NNull x of Just n  -> return n
-                                                  Nothing -> putStrLn "-- Eingabe unklar!" >> abfrage nm frg
+                                                  Nothing -> putStr "-- Eingabe unklar!" >> abfrage nm frg
+       
+      einzahlFrage :: Name -> IO Int
+      einzahlFrage nm = do putStr $ "\n-- Wie viel Geld hat " ++ nm ++ " eingezahlt? "
+                           x <- getLine
+                           if '.' `elem` x then case readInt NNull (filter (/= '.') x) of Just n  -> return n
+                                                                                          Nothing -> putStr "-- Eingabe unklar!" >> einzahlFrage nm
+                                           else case readInt NNull x                   of Just n  -> return (100 * n)
+                                                                                          Nothing -> putStr "-- Eingabe unklar!" >> einzahlFrage nm
 
 neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
@@ -181,7 +186,7 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                                       case n of {"" -> askName ; x -> return x}
 
                          askKontostand :: IO Int
-                         askKontostand = do putStr "Bitte geben Sie einen validen Kontostand ein: " ; l <- getLine
+                         askKontostand = do putStr $ "Bitte geben Sie einen validen Kontostand " ++ (showFarbe TGelb "in Cent") ++ " ein: " ; l <- getLine
                                             case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
 
 listLoop :: IO [Trinker] -> Int -> IO ()
@@ -200,7 +205,7 @@ listLoop xs i = do
                                
                                 "n" -> do neu <- neuTrinker ; listLoop (return (as ++ [neu])) (i)
 
-                                "z" -> let z q = min (i-q) 0 in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                "z" -> let z q = max (i-q) 0 in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 _   -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
   
@@ -224,7 +229,7 @@ listLoop xs i = do
                                                                case q of "ok" -> listLoop (return ((take i as) ++ p : (drop (i+1) as))) (i+1)
                                                                          ""   -> foobar ti p
                                                                          _    -> putStr "Vorgang abgebrochen. Wiederhole:" >> listLoop xs i
-                                          in do p <- (\(Trinker name gth ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth ctr f))) tr
+                                          in do p <- (\(Trinker name gth ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth ctr True))) tr
                                                 showTrinkerInfo p ; foobar tr p
 
                                 'v':as -> let z q = min (i+q) (length as) in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
