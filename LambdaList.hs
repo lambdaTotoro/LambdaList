@@ -26,7 +26,6 @@ import System.Console.ANSI  (clearScreen)
 -- --> implement, Question function, refactor
 -- --> ausführliche Dokumentation
 -- --> Einlesen von "1.2" Euro oder so
--- --> User werden verschluckt
 
 -- Kung-Fu mit Typen
 
@@ -210,7 +209,7 @@ listLoop xs i = do
                                 "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ (showFarbe TBlau ((\(Trinker nm _ _ _) -> nm) tr)) ++ " aus der Liste entfernen: " ; q <- getLine
                                              if q == "ok" then listLoop (return ((take i as) ++ (drop (i+1) as))) i else listLoop xs i  
 
-                                "r"    -> do neu <- neuTrinker ; listLoop (return ((take i as) ++ neu:(drop (i+2) as))) i
+                                "r"    -> do neu <- neuTrinker ; listLoop (return ((take i as) ++ neu:(drop (i+1) as))) i
 
                                 "b"    -> let foobar ti p = do putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: " ; q <- getLine
                                                                case q of "ok" -> listLoop (return ((take i as) ++ p : (drop (i+1) as))) (i+1)
