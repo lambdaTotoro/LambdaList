@@ -25,6 +25,8 @@ import System.Console.ANSI  (clearScreen)
 -- NICE TO HAVES:
 -- --> implement, Question function, refactor
 -- --> ausführliche Dokumentation
+-- --> Einlesen von "1.2" Euro oder so
+-- --> User werden verschluckt
 
 -- Kung-Fu mit Typen
 
