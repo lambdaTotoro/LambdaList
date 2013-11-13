@@ -45,16 +45,12 @@ instance Ord Trinker where
     compare (Trinker a _ _ _)  (Trinker x _ _ _) = compare a x
 
 instance Show Guthaben where
-    show (Guthaben n) = if abs n >= 100 then (reverse . drop 2 . reverse) (show n) ++ "." ++ (reverse . take 2 . reverse) (show n)
-                                          else zeig n
-        where
-          zeig :: Int -> String
-          zeig n
-             | n <= (-10) = "-0."  ++ (show . abs) n
-             | n < 0      = "-0.0" ++ (show . abs) n
-             | n >= 10    = "0."   ++ show n
-             | n > 0      = "0.0"  ++ show n
-             | otherwise  = "0.00" 
+    show (Guthaben n) = addMinus $ show (div (abs n - a) 100) ++ "." ++ addZeros (show a)
+         where a = abs n `mod` 100
+               addMinus = if n >= 0 then id else ("-"++)
+               addZeros 
+                  | abs a <= 9 = ("0" ++)
+                  | otherwise  = id
 
 instance Show Trinker where
     show (Trinker a b c f) = intercalate ";" updatedWerte
@@ -138,6 +134,13 @@ cleanGuthaben :: String -> Maybe Int
 cleanGuthaben s = case readInt NNull $ filter (not . (`elem` ",.")) s
                        of {Just n -> Just n ; _ -> Nothing}
 
+frage :: String -> IO Bool
+frage fr = do putStr fr ; q <- getLine
+              return (q == "ok")
+
+ifM :: Monad m => m Bool -> m b -> m b -> m b
+ifM p a b = do { p' <- p ; if p' then a else b }
+
 -- Hauptprogrammlogik:
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
@@ -174,13 +177,6 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                          askKontostand :: IO Int
                          askKontostand = do putStr $ "Bitte geben Sie einen validen Kontostand " ++ showFarbe TGelb "in Cent" ++ " ein: " ; l <- getLine
                                             case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
-
-frage :: String -> IO Bool
-frage fr = do putStr fr ; q <- getLine
-              return (q == "ok")
-
-ifM :: Monad m => m Bool -> m b -> m b -> m b
-ifM p a b = do { p' <- p ; if p' then a else b }
 
 listLoop :: IO [Trinker] -> Int -> IO ()
 listLoop xs i = do
