@@ -20,10 +20,8 @@ import Data.List.Split      (splitOn)
 
 import System.IO
 import System.Directory     (doesFileExist)
-import System.Console.ANSI  (clearScreen)
 
 -- NICE TO HAVES:
--- --> implement, Question function, refactor
 -- --> ausführliche Dokumentation
 -- --> Einlesen von "1.2" Euro oder so
 
@@ -35,17 +33,19 @@ type Flag       = Bool
 
 data NInterp    = NNull | NNothing
 data TColor     = TBlau | TGruen | TRot | TGelb
+
 data Trinker    = Trinker Name Guthaben Counter Flag
+
 data Guthaben   = Guthaben Int
 
 instance Eq Trinker where
-    (Trinker a _ _ _) == (Trinker x _ _ _) = (a == x)
+    (Trinker a _ _ _) == (Trinker x _ _ _) = a == x
 
 instance Ord Trinker where
     compare (Trinker a _ _ _)  (Trinker x _ _ _) = compare a x
 
 instance Show Guthaben where
-    show (Guthaben n) = if (abs n) >= 100 then (reverse . (drop 2) . reverse) (show n) ++ "." ++ (reverse . (take 2) . reverse) (show n)
+    show (Guthaben n) = if abs n >= 100 then (reverse . drop 2 . reverse) (show n) ++ "." ++ (reverse . take 2 . reverse) (show n)
                                           else zeig n
         where
           zeig :: Int -> String
@@ -59,26 +59,26 @@ instance Show Guthaben where
 instance Show Trinker where
     show (Trinker a b c f) = intercalate ";" updatedWerte
         where
-          updatedWerte = if not f then [a, (show b), (show (c+1))]
-                                  else [a, (show b), (show c)]
+          updatedWerte = if not f then [a, show b, show (c+1)]
+                                  else [a, show b, show c]
 
 -- Datei - Ein- und Ausgabe
 
 parseListe :: FilePath -> IO [Trinker] 
 parseListe fp = do a <- readFile fp
-                   return $ map parseTrinker $ map (splitOn ";") (lines a)
+                   return $ map (parseTrinker . splitOn ";") (lines a)
     where
       parseTrinker :: [String] -> Trinker
-      parseTrinker [x,y,z] = case (cleanGuthaben y) of Just u  -> case readInt NNothing z of Just k  -> Trinker x (Guthaben u) k False
-                                                                                             Nothing -> error $ "Parsingfehler bei Guthaben hier: " ++ z
-                                                       Nothing -> error $ "Parsingfehler! Unkorrekter Betrag hier: " ++ concat [x,y,z]
+      parseTrinker [x,y,z] = case cleanGuthaben y of Just u -> case readInt NNothing z of Just k  -> Trinker x (Guthaben u) k False
+                                                                                          Nothing -> error $ "Parsingfehler bei Guthaben hier: " ++ z
+                                                     Nothing -> error $ "Parsingfehler! Unkorrekter Betrag hier: " ++ concat [x,y,z]
       parseTrinker _       = error "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
 
 writeFiles :: [Trinker] -> IO()
 writeFiles trinker = let strinker = sort trinker in
                          do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
                             writeFile "mateliste.txt" $ unlines $ map show strinker
-                            writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ (map toLaTeX strinker) ++ [latexFooter]
+                            writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ map toLaTeX strinker ++ [latexFooter]
                             putStrLn  "done!"
                             putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
@@ -89,7 +89,7 @@ toLaTeX (Trinker nm gb@(Guthaben b) _ _)
     | otherwise =                               latexRow
       where
         latexRow :: String
-        latexRow = nm ++ "&" ++ (show gb) ++ "& & & & & & \\\\\n\\hline"
+        latexRow = nm ++ "&" ++ show gb ++ "& & & & & & \\\\\n\\hline"
 
 latexHeader :: String
 latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[utf8]{inputenc}\n"
@@ -102,7 +102,7 @@ latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[ut
               ++ "& Schokor. (0,50 \\euro) & 0,20 \\euro & 0,10 \\euro & 0,05 \\euro\\\\\n\\hline\n\\hline\n"
 
 latexFooter :: String
-latexFooter =  (concat $ replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{longtable}\\bigskip"
+latexFooter =  concat (replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{longtable}\\bigskip"
                ++ "\n\\begin{center} \n Neue Trinker tragen sich bitte im Stil vom TechFak-Login ein.\\\\ \n"
                ++ "\n(1. Buchstabe des Vornamens + 7 Buchstaben des Nachnamens (oder voller Nachname)) \\bigskip \\\\ \n"
                ++ "\\textbf{Je mehr Geld in der Kasse, desto schneller gibt es neue Getränke!} \\\\ \n"
@@ -125,33 +125,33 @@ showFarbe clr txt = case clr of TRot   -> "\x1b[31m" ++ txt ++ "\x1b[0m"
 
 showGuthaben :: Guthaben -> String
 showGuthaben gld@(Guthaben betr)
-    | (betr < 0) = showFarbe TRot   $ show gld
-    | otherwise  = showFarbe TGruen $ show gld
+    | betr < 0  = showFarbe TRot   $ show gld
+    | otherwise = showFarbe TGruen $ show gld
 
 showTrinkerInfo :: Trinker -> IO ()
-showTrinkerInfo (Trinker nm gld ctr _) = putStrLn $ "\nDer User " ++ (showFarbe TBlau nm) ++ inac ++ " hat derzeit einen Kontostand von " ++ (showGuthaben gld) ++ "."
+showTrinkerInfo (Trinker nm gld ctr _) = putStrLn $ "\nDer User " ++ showFarbe TBlau nm ++ inac ++ " hat derzeit einen Kontostand von " ++ showGuthaben gld ++ "."
     where
       inac :: String
-      inac = if ctr == 0 then "" else " (" ++ (show ctr) ++ " Mal inaktiv)"
+      inac = if ctr == 0 then "" else " (" ++ show ctr ++ " Mal inaktiv)"
 
 cleanGuthaben :: String -> Maybe Int
-cleanGuthaben s = case readInt NNull $ filter (not . (flip elem ",.")) s
+cleanGuthaben s = case readInt NNull $ filter (not . (`elem` ",.")) s
                        of {Just n -> Just n ; _ -> Nothing}
 
 -- Hauptprogrammlogik:
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
 processTrinker (Trinker nm (Guthaben gld) cntr _) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
-               = if and $ map (==0) werte then do return $ Trinker nm (Guthaben gld)                          (cntr+1) True
-                                          else do return $ Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        True
+               = return $ if all (==0) werte then Trinker nm (Guthaben gld)                          (cntr+1) True
+                                             else Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        True
     where
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
 getAmounts :: Name -> IO [Int]
-getAmounts nm = (mapM (abfrage nm) fragen)
+getAmounts nm = mapM (abfrage nm) fragen
     where
       fragen :: [String]
-      fragen = ("-- Wie viel Geld hat " ++ nm ++ (showFarbe TGelb " in Cent" ++ " eingezahlt? ")):(map (strichFragen nm) ["90", "70", "50", "20", "10", " 5"])
+      fragen = ("-- Wie viel Geld hat " ++ nm ++ showFarbe TGelb " in Cent" ++ " eingezahlt? "):map (strichFragen nm) ["90", "70", "50", "20", "10", " 5"]
      
       strichFragen :: Name -> String -> String
       strichFragen nm amnt = "-- Wie viele Striche hat " ++ nm ++ " in der Spalte für " ++ amnt ++ " Cent? "
@@ -164,7 +164,7 @@ neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                 x <- askName
                 y <- askKontostand
-                putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: Trinker " ++ (showFarbe TBlau x) ++ " mit einem Kontostand von " ++ (showGuthaben (Guthaben y)) ++ "  "
+                putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: Trinker " ++ showFarbe TBlau x ++ " mit einem Kontostand von " ++ showGuthaben (Guthaben y) ++ "  "
                 o <- getLine
                 if o == "ok" then return $ Trinker x (Guthaben y) 0 True else putStrLn "Bestätigung nicht erhalten. Neuer Versuch:\n" >> neuTrinker
                    where askName :: IO String
@@ -172,26 +172,33 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                                       case n of {"" -> askName ; x -> return x}
 
                          askKontostand :: IO Int
-                         askKontostand = do putStr $ "Bitte geben Sie einen validen Kontostand " ++ (showFarbe TGelb "in Cent") ++ " ein: " ; l <- getLine
+                         askKontostand = do putStr $ "Bitte geben Sie einen validen Kontostand " ++ showFarbe TGelb "in Cent" ++ " ein: " ; l <- getLine
                                             case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
+
+frage :: String -> IO Bool
+frage fr = do putStr fr ; q <- getLine
+              return (q == "ok")
+
+ifM :: Monad m => m Bool -> m b -> m b -> m b
+ifM p a b = do { p' <- p ; if p' then a else b }
 
 listLoop :: IO [Trinker] -> Int -> IO ()
 listLoop xs i = do
                 as <- xs
                 if i >= length as 
-                   then do putStrLn $ "\n!! Sie haben das " ++ (showFarbe TGelb "Ende") ++ " der aktuellen Liste erreicht. !!"
-                           putStr   $ "!! Bitte wählen sie aus: speichern/b(e)enden | (a)bbrechen | (n)euer Trinker | (z)urück : "
+                   then do putStrLn $ "\n!! Sie haben das " ++ showFarbe TGelb "Ende" ++ " der aktuellen Liste erreicht. !!"
+                           putStr     "!! Bitte wählen sie aus: speichern/b(e)enden | (a)bbrechen | (n)euer Trinker | (z)urück : "
                            c <- getLine
                            case c of
-                                "e" -> do putStr "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
-                                          if q == "ok" then writeFiles as else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
+                                "e" -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
+                                       (writeFiles as) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
-                                "a" -> do putStr "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
-                                          if q == "ok" then putStrLn "Dann bis zum nächsten Mal! :)" else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
+                                "a" -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
+                                       (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
                                
-                                "n" -> do neu <- neuTrinker ; listLoop (return (as ++ [neu])) (i)
+                                "n" -> do neu <- neuTrinker ; listLoop (return (as ++ [neu])) i
 
-                                "z" -> let z q = max (i-q) 0 in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                "z" -> let z q = max (i-q) 0 in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 _   -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
   
@@ -200,33 +207,32 @@ listLoop xs i = do
                            putStr "Bitte wählen Sie aus! (a)bbrechen | (b)earbeiten | b(e)enden | (l)öschen | übe(r)schreiben | (v)or | (z)urück : "
                            c <- getLine
                            case c of
-                                "a"    -> do putStr "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
-                                             if q == "ok" then putStrLn "Dann bis zum nächsten Mal! :)" else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
+                                "a"    -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
+                                          (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
-                                "e"    -> do putStr "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: " ; q <- getLine
-                                             if q == "ok" then writeFiles as else putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i
+                                "e"    -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
+                                          (writeFiles as) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
-                                "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ (showFarbe TBlau ((\(Trinker nm _ _ _) -> nm) tr)) ++ " aus der Liste entfernen: " ; q <- getLine
-                                             if q == "ok" then listLoop (return ((take i as) ++ (drop (i+1) as))) i else listLoop xs i  
+                                "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ showFarbe TBlau ((\(Trinker nm _ _ _) -> nm) tr) ++ " aus der Liste entfernen: " ; q <- getLine
+                                             if q == "ok" then listLoop (return (take i as ++ drop (i+1) as)) i else listLoop xs i  
 
-                                "r"    -> do neu <- neuTrinker ; listLoop (return ((take i as) ++ neu:(drop (i+1) as))) i
+                                "r"    -> do neu <- neuTrinker ; listLoop (return (take i as ++ neu:drop (i+1) as)) i
 
-                                "b"    -> let foobar ti p = do putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: " ; q <- getLine
-                                                               case q of "ok" -> listLoop (return ((take i as) ++ p : (drop (i+1) as))) (i+1)
+                                "b"    -> let foobar ti p = do putStr "Bitte geben Sie \"ok\" zum Bestätigen ein: " ; q <- getLine
+                                                               case q of "ok" -> listLoop (return (take i as ++ p : drop (i+1) as)) (i+1)
                                                                          ""   -> foobar ti p
                                                                          _    -> putStr "Vorgang abgebrochen. Wiederhole:" >> listLoop xs i
                                           in do p <- (\(Trinker name gth ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth ctr True))) tr
                                                 showTrinkerInfo p ; foobar tr p
 
-                                'v':as -> let z q = min (i+q) (length as) in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
-                                'z':bs -> let z q = max (i-q) 0           in case ((readInt NNothing) . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                'v':as -> let z q = min (i+q) (length as) in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                'z':bs -> let z q = max (i-q) 0           in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 ""     -> listLoop xs (min (i+1) (length as))
                                 _      -> putStr "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
 
 main :: IO()
-main = do clearScreen
-          hSetBuffering stdout NoBuffering
+main = do hSetBuffering stdout NoBuffering
 
           putStrLn "++ LambdaList v. 1.0 ++ \n\nWillkommen, User!"
           putStrLn "Dies ist ein automatisches Matelistenprogramm. Bitte beantworten Sie die Fragen auf dem Schirm."
