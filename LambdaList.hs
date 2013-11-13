@@ -95,7 +95,7 @@ latexHeader :: String
 latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[utf8]{inputenc}\n"
               ++ "\\usepackage{german}\n\\usepackage{longtable}\n\\usepackage{eurosym}\n"
               ++ "\\usepackage{color}\n\\usepackage{colortbl}\n\\usepackage{geometry}"
-              ++ "\n\\geometry{a4paper,left=0mm,right=0mm, top=0.25cm, bottom=0.25cm}"
+              ++ "\n\\geometry{a4paper,left=0mm,right=0mm, top=0.5cm, bottom=0.75cm}"
               ++ "\n\n\\definecolor{dunkelgrau}{rgb}{0.6,0.6,0.6}\n\\definecolor{hellgrau}{rgb}{0.8,0.8,0.8}\n"
               ++ "\n\\begin{document}\n\\begin{longtable}{|l|p{3cm}|p{5cm}|l|l|p{2cm}|p{2cm}|p{2cm}|}\n\\hline"
               ++ "\n\\textbf{Login} & Guthaben & Club Mate (0,90 \\euro) & Cola \\slash\\ Brause (0,70 \\euro)"
