@@ -27,16 +27,15 @@ import System.Directory     (doesFileExist)
 
 -- Kung-Fu mit Typen
 
-type Name       = String
-type Counter    = Int
-type Flag       = Bool
+type Name        = String
+type Counter     = Int
+type Flag        = Bool
 
-data NInterp    = NNull | NNothing
-data TColor     = TBlau | TGruen | TRot | TGelb
+newtype Guthaben = Guthaben Int
 
-data Trinker    = Trinker Name Guthaben Counter Flag
-
-data Guthaben   = Guthaben Int
+data NInterp     = NNull | NNothing
+data TColor      = TBlau | TGruen | TRot | TGelb
+data Trinker     = Trinker Name Guthaben Counter Flag
 
 instance Eq Trinker where
     (Trinker a _ _ _) == (Trinker x _ _ _) = a == x
@@ -47,7 +46,7 @@ instance Ord Trinker where
 instance Show Guthaben where
     show (Guthaben n) = addMinus $ show (div (abs n - a) 100) ++ "." ++ addZeros (show a)
          where a = abs n `mod` 100
-               addMinus = if n >= 0 then id else ("-"++)
+               addMinus = if n >= 0 then id else ("-" ++)
                addZeros 
                   | abs a <= 9 = ("0" ++)
                   | otherwise  = id
