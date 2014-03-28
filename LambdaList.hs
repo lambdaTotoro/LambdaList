@@ -220,7 +220,7 @@ listLoop xs i = do
                                           in do p <- (\(Trinker name gth ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth ctr True))) tr
                                                 showTrinkerInfo p ; foobar tr p
 
-                                'v':bs -> let z q = min (i+q) (length bs) in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                'v':bs -> let z q = min (i+q) (length as) in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
                                 'z':bs -> let z q = max (i-q) 0           in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 ""     -> listLoop xs (min (i+1) (length as))
