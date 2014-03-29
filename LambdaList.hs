@@ -30,18 +30,32 @@ import System.Directory     (doesFileExist)
 type Name        = String
 type Counter     = Int
 type Flag        = Bool
+type User        = String
+type Domain      = String
 
 newtype Guthaben = Guthaben Int
 
 data NInterp     = NNull | NNothing
+
+data MailAdress  = Adress User Domain -- user provided an e-mail adress
+                 | DefaultAdress      -- user has the standard e-mail pattern
+                 | NoAdress           -- user provided no e-mail adress
+                 | Mty                -- E-mail adress was not evaluated until now
+
 data TColor      = TBlau | TGruen | TRot | TGelb
-data Trinker     = Trinker Name Guthaben Counter Flag
+data Trinker     = Trinker Name Guthaben MailAdress Counter Flag
 
 instance Eq Trinker where
-    (Trinker a _ _ _) == (Trinker x _ _ _) = a == x
+    (Trinker a _ _ _ _) == (Trinker x _ _ _ _) = a == x
 
 instance Ord Trinker where
-    compare (Trinker a _ _ _)  (Trinker x _ _ _) = compare a x
+    compare (Trinker a _ _ _ _)  (Trinker x _ _ _ _) = compare a x
+
+instance Show Trinker where
+    show (Trinker a b c d f) = intercalate ";" updatedWerte
+        where
+          updatedWerte = if not f then [a, show b, show c, show (d+1)]
+                                  else [a, show b, show c, show d]
 
 instance Show Guthaben where
     show (Guthaben n) = addMinus $ show (div (abs n - a) 100) ++ "." ++ addZeros (show a)
@@ -51,11 +65,16 @@ instance Show Guthaben where
                   | abs a <= 9 = ("0" ++)
                   | otherwise  = id
 
-instance Show Trinker where
-    show (Trinker a b c f) = intercalate ";" updatedWerte
-        where
-          updatedWerte = if not f then [a, show b, show (c+1)]
-                                  else [a, show b, show c]
+instance Show MailAdress where
+    show (Adress u d)    = u ++ '@':d
+    show (DefaultAdress) = error "unimplemented"
+    show (NoAdress)      = "n/a"
+    show (Mty)           = ""
+
+-- Konstanten 
+
+stdDomain :: String
+stdDomain = "somedefault.com"
 
 -- Datei - Ein- und Ausgabe
 
@@ -64,10 +83,17 @@ parseListe fp = do a <- readFile fp
                    return $ map (parseTrinker . splitOn ";") (lines a)
     where
       parseTrinker :: [String] -> Trinker
-      parseTrinker [x,y,z] = case cleanGuthaben y of Just u -> case readInt NNothing z of Just k  -> Trinker x (Guthaben u) k False
-                                                                                          Nothing -> error $ "Parsingfehler bei Guthaben hier: " ++ z
-                                                     Nothing -> error $ "Parsingfehler! Unkorrekter Betrag hier: " ++ concat [x,y,z]
-      parseTrinker _       = error "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
+      parseTrinker [a,b,c]   = parseTrinker [a,b,"",c]
+      parseTrinker [a,b,c,d] = case cleanGuthaben b of
+                                  Just u -> case readInt NNothing d of
+                                     Just k  -> case splitOn "@" c of 
+                                        [y,z]   -> Trinker a (Guthaben u) (Adress y z) k False -- with E-Mail
+                                        ["n/a"] -> Trinker a (Guthaben u) NoAdress     k False -- without E-Mail (silent)
+                                        []      -> Trinker a (Guthaben u) Mty          k False -- without E-Mail (vocal)
+                                        _       -> error $ "Parsingfehler (E-Mail) hier: "   ++ c
+                                     Nothing ->    error $ "Parsingfehler (Counter) hier: "  ++ d
+                                  Nothing ->       error $ "Parsingfehler (Guthaben) hier: " ++ b
+      parseTrinker _         =                     error $ "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
 
 writeFiles :: [Trinker] -> IO()
 writeFiles trinker = let strinker = sort trinker in
@@ -75,10 +101,11 @@ writeFiles trinker = let strinker = sort trinker in
                             writeFile "mateliste.txt" $ unlines $ map show strinker
                             writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ map toLaTeX strinker ++ [latexFooter]
                             putStrLn  "done!"
+                            -- TODO: MAILS
                             putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
 toLaTeX :: Trinker -> String
-toLaTeX (Trinker nm gb@(Guthaben b) _ _)
+toLaTeX (Trinker nm gb@(Guthaben b) _ _ _)
     | b < -1000 = "\\rowcolor{dunkelgrau}\n" ++ latexRow
     | b < 0     = "\\rowcolor{hellgrau}\n"   ++ latexRow
     | otherwise =                               latexRow
@@ -124,7 +151,7 @@ showGuthaben gld@(Guthaben betr)
     | otherwise = showFarbe TGruen $ show gld
 
 showTrinkerInfo :: Trinker -> IO ()
-showTrinkerInfo (Trinker nm gld ctr _) = putStrLn $ "\nDer User " ++ showFarbe TBlau nm ++ inac ++ " hat derzeit einen Kontostand von " ++ showGuthaben gld ++ "."
+showTrinkerInfo (Trinker nm gld nMail ctr _) = putStrLn $ "\nDer User " ++ showFarbe TBlau nm ++ inac ++ " hat derzeit einen Kontostand von " ++ showGuthaben gld ++ "."
     where
       inac :: String
       inac = if ctr == 0 then "" else " (" ++ show ctr ++ " Mal inaktiv)"
@@ -143,9 +170,9 @@ ifM p a b = do { p' <- p ; if p' then a else b }
 -- Hauptprogrammlogik:
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
-processTrinker (Trinker nm (Guthaben gld) cntr _) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
-               = return $ if all (==0) werte then Trinker nm (Guthaben gld)                          (cntr+1) True
-                                             else Trinker nm (Guthaben (gld + enzhlng - vertrunken)) 0        True
+processTrinker (Trinker nm (Guthaben gld) mMail cntr _) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
+               = return $ if all (==0) werte then Trinker nm (Guthaben gld)                          mMail (cntr+1) True
+                                             else Trinker nm (Guthaben (gld + enzhlng - vertrunken)) mMail 0        True
     where
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
@@ -166,9 +193,10 @@ neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                 x <- askName
                 y <- askKontostand
+                z <- askMailAdress
                 putStr $ "Bitte geben Sie \"ok\" zum Bestätigen ein: Trinker " ++ showFarbe TBlau x ++ " mit einem Kontostand von " ++ showGuthaben (Guthaben y) ++ "  "
                 o <- getLine
-                if o == "ok" then return $ Trinker x (Guthaben y) 0 True else putStrLn "Bestätigung nicht erhalten. Neuer Versuch:\n" >> neuTrinker
+                if o == "ok" then return $ Trinker x (Guthaben y) z 0 True else putStrLn "Bestätigung nicht erhalten. Neuer Versuch:\n" >> neuTrinker
                    where askName :: IO String
                          askName = do putStr "Bitte geben Sie einen Nicknamen ein: " ; n <- getLine
                                       case n of {"" -> askName ; x -> return x}
@@ -176,6 +204,10 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                          askKontostand :: IO Int
                          askKontostand = do putStr $ "Bitte geben Sie einen validen Kontostand " ++ showFarbe TGelb "in Cent" ++ " ein: " ; l <- getLine
                                             case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
+
+                         askMailAdress :: IO MailAdress
+                         askMailAdress = do putStr $ "Bitte geben Sie eine gültige E-Mail-Adresse ein (\"default\" für Standard): " ; l <- getLine
+                                            case splitOn "@" l of {[""] -> return Mty ; ["default"] -> return DefaultAdress ; [x,y] -> return (Adress x y) ; _ -> askMailAdress}
 
 listLoop :: IO [Trinker] -> Int -> IO ()
 listLoop xs i = do
@@ -208,7 +240,7 @@ listLoop xs i = do
                                 "e"    -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
                                           (writeFiles as) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
-                                "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ showFarbe TBlau ((\(Trinker nm _ _ _) -> nm) tr) ++ " aus der Liste entfernen: " ; q <- getLine
+                                "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ showFarbe TBlau ((\(Trinker nm _ _ _ _) -> nm) tr) ++ " aus der Liste entfernen: " ; q <- getLine
                                              if q == "ok" then listLoop (return (take i as ++ drop (i+1) as)) i else listLoop xs i  
 
                                 "r"    -> do neu <- neuTrinker ; listLoop (return (take i as ++ neu:drop (i+1) as)) i
@@ -217,7 +249,7 @@ listLoop xs i = do
                                                                case q of "ok" -> listLoop (return (take i as ++ p : drop (i+1) as)) (i+1)
                                                                          ""   -> foobar ti p
                                                                          _    -> putStr "Vorgang abgebrochen. Wiederhole:" >> listLoop xs i
-                                          in do p <- (\(Trinker name gth ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth ctr True))) tr
+                                          in do p <- (\(Trinker name gth mMail ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth mMail ctr True))) tr
                                                 showTrinkerInfo p ; foobar tr p
 
                                 'v':bs -> let z q = min (i+q) (length as) in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
