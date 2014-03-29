@@ -1,3 +1,5 @@
+ {-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
+
 -- ######################################################
 -- #                                                    #
 -- #	== LambdaList ==                                #
@@ -6,7 +8,7 @@
 -- #    Getränkeliste der Fachschaft Technik an der     #
 -- #    Uni Bielefeld zu managen.                       #
 -- #                                                    #
--- #	Geschrieben von Jonas Betzendahl, 2013          #
+-- #	Geschrieben von Jonas Betzendahl, 2013/14       #
 -- #    jbetzend@techfak.uni-bielefeld.de               #
 -- #                                                    #
 -- #	Lizenz: CC0 / Public Domain                     #
@@ -15,11 +17,18 @@
 
 module Main where
 
-import Data.List            (intercalate, sort)
-import Data.List.Split      (splitOn)
+import Data.List                 (intercalate, sort)
+import Data.List.Split           (splitOn)
+
+import qualified Data.Text       as T
+import qualified Data.Text.Lazy  as TL
 
 import System.IO
-import System.Directory     (doesFileExist)
+import System.Directory          (doesFileExist)
+
+import Development.Placeholders  (placeholder)
+
+import Network.Mail.SMTP
 
 -- NICE TO HAVES:
 -- --> ausführliche Dokumentation
@@ -54,8 +63,14 @@ instance Ord Trinker where
 instance Show Trinker where
     show (Trinker a b c d f) = intercalate ";" updatedWerte
         where
-          updatedWerte = if not f then [a, show b, show c, show (d+1)]
-                                  else [a, show b, show c, show d]
+          updatedWerte = if not f then [a, show b, showMail c a, show (d+1)]
+                                  else [a, show b, showMail c a, show d]
+
+          showMail :: MailAdress -> String -> String
+          showMail (Adress u d)    _  = u ++ '@':d
+          showMail (NoAdress)      _  = "n/a"
+          showMail (DefaultAdress) nm = nm ++ stdDomain  
+          showMail (Mty)           _  = ""
 
 instance Show Guthaben where
     show (Guthaben n) = addMinus $ show (div (abs n - a) 100) ++ "." ++ addZeros (show a)
@@ -65,16 +80,14 @@ instance Show Guthaben where
                   | abs a <= 9 = ("0" ++)
                   | otherwise  = id
 
-instance Show MailAdress where
-    show (Adress u d)    = u ++ '@':d
-    show (DefaultAdress) = error "unimplemented"
-    show (NoAdress)      = "n/a"
-    show (Mty)           = ""
-
--- Konstanten 
+-- Konstanten
+-- Hier bitte eigene Werte einfügen
 
 stdDomain :: String
-stdDomain = "somedefault.com"
+stdDomain = $(placeholder "Bitte eigene Standard-Domain im Code angeben!") 
+
+stdHost :: String
+stdHost   = $(placeholder "Bitte eigenen Standard-Host für ausgehende Mails im Code angeben!")
 
 -- Datei - Ein- und Ausgabe
 
@@ -89,19 +102,20 @@ parseListe fp = do a <- readFile fp
                                      Just k  -> case splitOn "@" c of 
                                         [y,z]   -> Trinker a (Guthaben u) (Adress y z) k False -- with E-Mail
                                         ["n/a"] -> Trinker a (Guthaben u) NoAdress     k False -- without E-Mail (silent)
-                                        []      -> Trinker a (Guthaben u) Mty          k False -- without E-Mail (vocal)
+                                        [""]    -> Trinker a (Guthaben u) Mty          k False -- without E-Mail (vocal)
                                         _       -> error $ "Parsingfehler (E-Mail) hier: "   ++ c
                                      Nothing ->    error $ "Parsingfehler (Counter) hier: "  ++ d
                                   Nothing ->       error $ "Parsingfehler (Guthaben) hier: " ++ b
-      parseTrinker _         =                     error $ "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
+      parseTrinker _         =                     error   "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
 
 writeFiles :: [Trinker] -> IO()
 writeFiles trinker = let strinker = sort trinker in
                          do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
                             writeFile "mateliste.txt" $ unlines $ map show strinker
                             writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ map toLaTeX strinker ++ [latexFooter]
-                            putStrLn  "done!"
-                            -- TODO: MAILS
+                            putStrLn  "fertig!"
+                            putStrLn  "Schreibe jetzt böse E-Mails an alle mit mehr als 10 Euro Schulden...\n\n"
+                            sendAllMails strinker
                             putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
 toLaTeX :: Trinker -> String
@@ -131,6 +145,40 @@ latexFooter =  concat (replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{l
                ++ "\\textbf{Also seid so freundlich und übt bitte ein bisschen \\glqq peer pressure\\grqq\\ auf die Leute im Minus aus.}\n"
                ++ "\\end{center} \n \\end{document}"
 
+-- Alles um Mails herum
+
+sendAllMails :: [Trinker] -> IO()
+sendAllMails []                                       = putStrLn "\n\n...fertig!"
+sendAllMails ((Trinker nm (Guthaben g) mMail c f):xs) = if g < -1000 then sendEvilEmail (Trinker nm (Guthaben g) mMail c f)
+                                                                     else sendAllMails xs
+
+sendEvilEmail :: Trinker -> IO()
+sendEvilEmail (Trinker nm _    Mty      _ _) = putStrLn $ showFarbe TRot "->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da noch keine E-Mail-Adresse angegeben wurde."
+sendEvilEmail (Trinker nm _    NoAdress _ _) = putStrLn $ showFarbe TRot "->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
+sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "Fachschaft Technik") $(placeholder "Bitte Mate-Verantwortlichen im Code eintragen!")
+                                                  let to      = case mMail of 
+                                                                  DefaultAdress -> (Address Nothing (T.pack (nm ++ stdDomain)))
+                                                                  (Adress u d)  -> (Address Nothing (T.pack (u ++ '@':d)))
+                                                  let cc      = [$(placeholder "Bitte CC-Verantwortlichen im Code eintragen")]
+                                                  let bcc     = []
+                                                  let subject = "[Fachschaft Technik] Mate-Konto ausgleichen!"
+                                                  let body    = plainTextPart $ TL.pack $ composeEvilEmail nm gthb
+                                                  let mail    = simpleMail from [to] cc bcc subject [body]
+                                                  sendMail stdHost mail
+                                                  putStrLn $ showFarbe TGruen "->" ++ " Böse E-Mail an " ++ showFarbe TBlau nm ++ " erfolgreich versendet."
+   where
+      composeEvilEmail :: String -> Guthaben -> String
+      composeEvilEmail nm g = "Hallo " ++ nm ++ "!\n\nWenn du diese Mail erhältst bedeutet das, dass du mit deinem Matekonto\n(eventuell sogar deutlich) über 10 Euro im Minus bist."
+                              ++ "\nGenauer gesagt beträgt dein Guthaben auf der Mateliste aktuell: " ++ show g ++ "\n\n"
+                              ++ "Es handelt sich hier generell um ein Prepaid-Konto und wenn zu viele\nLeute zu stark im Minus sind, bedeutet das, dass wir keine Mate"
+                              ++ "\nbestellen können oder wir sie teurer verkaufen müssen. Ich würde dich\nalso bitten, fluchs wieder etwas einzuzahlen.\n\n"
+                              ++ "Du kannst uns natürlich auch einfach etwas überweisen. Kontoverbindung:\n\n" ++ $(placeholder "Bitte Kontodaten im Code eintragen!") ++ "\n\n"
+                              ++ "Bitte nicht vergessen, euren Login oder Namen in den Verwendungszweck\nzu packen, sodass man euch identifizieren kann. Inzwischen kann man\n"
+                              ++ "auch in der Fachschaft Bargeld hinterlegen, wenn mal der Mate-Fuzzi\nnicht da ist. Bittet dazu einfach einen beliebigen Fachschaftler\n"
+                              ++ "das Geld im entsprechenden Briefumschlag in der Protokollkasse zu\ndeponieren.\n\n" 
+                              ++ "Vergesst bitte auch nicht euch auf der Liste in der Fachschaft euer\nentsprechendes Plus unter \"Guthaben\" zu notieren, damit es nicht zu\n"
+                              ++ "Missverständnissen kommt.\n\nVielen Dank!\n\nLiebe Grüße,\n  euer automatisiertes Matekonto-Benachrichtigungsprogram\n   (i.A. für die Fachschaft Technik)" 
+
 -- Helferfunktionen und Trivialitäten:
 
 readInt :: NInterp -> String -> Maybe Int
@@ -143,7 +191,7 @@ showFarbe :: TColor -> String -> String
 showFarbe clr txt = case clr of TRot   -> "\x1b[31m" ++ txt ++ "\x1b[0m"
                                 TGruen -> "\x1b[32m" ++ txt ++ "\x1b[0m"
                                 TGelb  -> "\x1b[33m" ++ txt ++ "\x1b[0m"
-                                TBlau  -> "\x1b[34m" ++ txt ++ "\x1b[0m"
+                                TBlau  -> "\x1b[36m" ++ txt ++ "\x1b[0m"
 
 showGuthaben :: Guthaben -> String
 showGuthaben gld@(Guthaben betr)
@@ -188,7 +236,22 @@ getAmounts nm = mapM (abfrage nm) fragen
       abfrage :: Name -> String -> IO Int
       abfrage nm frg = do putStr frg ; x <- getLine
                           case readInt NNull x of {Just n  -> return n ; Nothing -> putStr "-- Eingabe unklar!" >> abfrage nm frg}
-       
+
+askEmail :: Trinker -> IO Trinker
+askEmail t@(Trinker nm gthb (Adress u d)  c f) = return t
+askEmail t@(Trinker nm gthb DefaultAdress c f) = return t
+askEmail t@(Trinker nm gthb NoAdress      c f) = return t
+askEmail t@(Trinker nm gthb Mty           c f) = do putStrLn $ "\n     Für diesen Trinker wurde noch " ++ showFarbe TRot "keine E-Mail-Adresse" ++ " eingetragen." 
+                                                    putStr     "     Bitte geben Sie eine gültige Adresse ein (\"default\" für den Standard, \"none\" für keine): "
+                                                    l <- getLine
+                                                    case splitOn "@" l of
+                                                      ["default"] -> return (Trinker nm gthb DefaultAdress c f)
+                                                      ["none"]    -> return (Trinker nm gthb NoAdress      c f)
+                                                      [""]        -> return (Trinker nm gthb Mty           c f)
+                                                      [x,y]       -> return (Trinker nm gthb (Adress x y)  c f)
+                                                      _           -> do putStrLn "Eingabe nicht verstanden. Ich wiederhole:\n"
+                                                                        askEmail t
+
 neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                 x <- askName
@@ -206,8 +269,8 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                                             case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
 
                          askMailAdress :: IO MailAdress
-                         askMailAdress = do putStr $ "Bitte geben Sie eine gültige E-Mail-Adresse ein (\"default\" für Standard): " ; l <- getLine
-                                            case splitOn "@" l of {[""] -> return Mty ; ["default"] -> return DefaultAdress ; [x,y] -> return (Adress x y) ; _ -> askMailAdress}
+                         askMailAdress = do putStr "Bitte geben Sie eine gültige E-Mail-Adresse ein (\"default\" für Standard, \"none\" für keine): " ; l <- getLine
+                                            case splitOn "@" l of {[""] -> return Mty ; ["none"] -> return NoAdress  ; ["default"] -> return DefaultAdress ; [x,y] -> return (Adress x y) ; _ -> askMailAdress}
 
 listLoop :: IO [Trinker] -> Int -> IO ()
 listLoop xs i = do
@@ -237,7 +300,7 @@ listLoop xs i = do
                                 "a"    -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
                                           (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
-                                "e"    -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
+                                "e"    -> ifM (frage "Wirklich beenden (bisherige Änderungen werden gespeichert)? Bitte geben Sie \"ok\" ein: ")
                                           (writeFiles as) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
                                 "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ showFarbe TBlau ((\(Trinker nm _ _ _ _) -> nm) tr) ++ " aus der Liste entfernen: " ; q <- getLine
@@ -246,7 +309,8 @@ listLoop xs i = do
                                 "r"    -> do neu <- neuTrinker ; listLoop (return (take i as ++ neu:drop (i+1) as)) i
 
                                 "b"    -> let foobar ti p = do putStr "Bitte geben Sie \"ok\" zum Bestätigen ein: " ; q <- getLine
-                                                               case q of "ok" -> listLoop (return (take i as ++ p : drop (i+1) as)) (i+1)
+                                                               case q of "ok" -> do k <- askEmail p
+                                                                                    listLoop (return (take i as ++ k : drop (i+1) as)) (i+1)
                                                                          ""   -> foobar ti p
                                                                          _    -> putStr "Vorgang abgebrochen. Wiederhole:" >> listLoop xs i
                                           in do p <- (\(Trinker name gth mMail ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth mMail ctr True))) tr
