@@ -67,9 +67,9 @@ instance Show Trinker where
                                   else [a, show b, showMail c a, show d]
 
           showMail :: MailAdress -> String -> String
-          showMail (Adress u d)    _  = u ++ '@':d
+          showMail (Adress u d)    _  = u  ++ '@':d
+          showMail (DefaultAdress) nm = nm ++ '@':stdDomain  
           showMail (NoAdress)      _  = "n/a"
-          showMail (DefaultAdress) nm = nm ++ stdDomain  
           showMail (Mty)           _  = ""
 
 instance Show Guthaben where
@@ -114,7 +114,7 @@ writeFiles trinker = let strinker = sort trinker in
                             writeFile "mateliste.txt" $ unlines $ map show strinker
                             writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ map toLaTeX strinker ++ [latexFooter]
                             putStrLn  "fertig!"
-                            putStrLn  "Schreibe jetzt böse E-Mails an alle mit mehr als 10 Euro Schulden...\n\n"
+                            putStrLn  "Schreibe jetzt böse E-Mails an alle mit mehr als 10 Euro Schulden..."
                             sendAllMails strinker
                             putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
@@ -157,8 +157,8 @@ sendEvilEmail (Trinker nm _    Mty      _ _) = putStrLn $ showFarbe TRot "->" ++
 sendEvilEmail (Trinker nm _    NoAdress _ _) = putStrLn $ showFarbe TRot "->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
 sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "Fachschaft Technik") $(placeholder "Bitte Mate-Verantwortlichen im Code eintragen!")
                                                   let to      = case mMail of 
-                                                                  DefaultAdress -> (Address Nothing (T.pack (nm ++ stdDomain)))
-                                                                  (Adress u d)  -> (Address Nothing (T.pack (u ++ '@':d)))
+                                                                  DefaultAdress -> (Address Nothing (T.pack (nm ++ '@':stdDomain)))
+                                                                  (Adress u d)  -> (Address Nothing (T.pack (u  ++ '@':d)))
                                                   let cc      = [$(placeholder "Bitte CC-Verantwortlichen im Code eintragen")]
                                                   let bcc     = []
                                                   let subject = "[Fachschaft Technik] Mate-Konto ausgleichen!"
@@ -169,7 +169,7 @@ sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "F
    where
       composeEvilEmail :: String -> Guthaben -> String
       composeEvilEmail nm g = "Hallo " ++ nm ++ "!\n\nWenn du diese Mail erhältst bedeutet das, dass du mit deinem Matekonto\n(eventuell sogar deutlich) über 10 Euro im Minus bist."
-                              ++ "\nGenauer gesagt beträgt dein Guthaben auf der Mateliste aktuell: " ++ show g ++ "\n\n"
+                              ++ "\nGenauer gesagt ist dein Guthaben auf der Mateliste aktuell: EUR " ++ show g ++ "\n\n"
                               ++ "Es handelt sich hier generell um ein Prepaid-Konto und wenn zu viele\nLeute zu stark im Minus sind, bedeutet das, dass wir keine Mate"
                               ++ "\nbestellen können oder wir sie teurer verkaufen müssen. Ich würde dich\nalso bitten, fluchs wieder etwas einzuzahlen.\n\n"
                               ++ "Du kannst uns natürlich auch einfach etwas überweisen. Kontoverbindung:\n\n" ++ $(placeholder "Bitte Kontodaten im Code eintragen!") ++ "\n\n"
@@ -177,7 +177,7 @@ sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "F
                               ++ "auch in der Fachschaft Bargeld hinterlegen, wenn mal der Mate-Fuzzi\nnicht da ist. Bittet dazu einfach einen beliebigen Fachschaftler\n"
                               ++ "das Geld im entsprechenden Briefumschlag in der Protokollkasse zu\ndeponieren.\n\n" 
                               ++ "Vergesst bitte auch nicht euch auf der Liste in der Fachschaft euer\nentsprechendes Plus unter \"Guthaben\" zu notieren, damit es nicht zu\n"
-                              ++ "Missverständnissen kommt.\n\nVielen Dank!\n\nLiebe Grüße,\n  euer automatisiertes Matekonto-Benachrichtigungsprogram\n   (i.A. für die Fachschaft Technik)" 
+                              ++ "Missverständnissen kommt.\n\nVielen Dank!\n\nLiebe Grüße,\n  euer automatisiertes Matekonto-Benachrichtigungsprogramm\n   (i.A. für die Fachschaft Technik)" 
 
 -- Helferfunktionen und Trivialitäten:
 
