@@ -148,8 +148,8 @@ latexFooter =  concat (replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{l
 -- Alles um Mails herum
 
 sendAllMails :: [Trinker] -> IO()
-sendAllMails []                                       = putStrLn "\n\n...fertig!"
-sendAllMails ((Trinker nm (Guthaben g) mMail c f):xs) = if g < -1000 then sendEvilEmail (Trinker nm (Guthaben g) mMail c f)
+sendAllMails []                                       = putStrLn "...fertig!"
+sendAllMails ((Trinker nm (Guthaben g) mMail c f):xs) = if g < -1000 then sendEvilEmail (Trinker nm (Guthaben g) mMail c f) >> sendAllMails xs
                                                                      else sendAllMails xs
 
 sendEvilEmail :: Trinker -> IO()
