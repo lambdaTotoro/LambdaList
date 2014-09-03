@@ -17,6 +17,7 @@
 
 module Main where
 
+import Data.Time
 import Data.List                 (intercalate, sort)
 import Data.List.Split           (splitOn)
 
@@ -24,7 +25,7 @@ import qualified Data.Text       as T
 import qualified Data.Text.Lazy  as TL
 
 import System.IO
-import System.Directory          (doesFileExist)
+import System.Directory          (Permissions, getPermissions, doesFileExist, createDirectoryIfMissing, copyFile)
 
 import Development.Placeholders  (placeholder)
 
@@ -252,6 +253,16 @@ askEmail t@(Trinker nm gthb Mty           c f) = do putStrLn $ "\n     Für dies
                                                       _           -> do putStrLn "Eingabe nicht verstanden. Ich wiederhole:\n"
                                                                         askEmail t
 
+-- Backups current state of MateListe
+backupData :: IO ()
+backupData = do putStr "Lege Sicherungskopie der aktuellen Daten an ..."
+                timestamp <- getCurrentTime
+                let name = show timestamp
+                createDirectoryIfMissing True ("./backups/" ++ name) -- will always be missing due to timestamp precision, but creates parents as well this way
+                copyFile "./mateliste.txt"    ("./backups/" ++ name ++ "/mateliste.txt")
+                copyFile "./mateliste.pdf"    ("./backups/" ++ name ++ "/mateliste.pdf")
+                putStrLn $ showFarbe TGruen "OK" ++ "!" 
+
 neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                 x <- askName
@@ -328,7 +339,7 @@ main = do hSetBuffering stdout NoBuffering
           putStrLn "++ LambdaList v. 1.0 ++ \n\nWillkommen, User!"
           putStrLn "Dies ist ein automatisches Matelistenprogramm. Bitte beantworten Sie die Fragen auf dem Schirm."
           putStr   "Scanne Verzeichnis nach vorhandener mateliste.txt ... "
-          f <- doesFileExist "mateliste.txt" 
-          if f 
-             then putStrLn " Liste gefunden!" >> listLoop (parseListe "mateliste.txt") 0
-             else putStrLn " keine Liste gefunden. Beim Beenden des Programms wird eine neue geschrieben werden." >> listLoop (return []) 0
+          f <- doesFileExist "mateliste.txt"
+          case f of
+             True  -> putStrLn " Liste gefunden!" >> backupData >> listLoop (parseListe "mateliste.txt") 0
+             False -> putStrLn " keine Liste gefunden. Beim Beenden des Programms wird eine neue geschrieben werden." >> listLoop (return []) 0
