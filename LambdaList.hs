@@ -25,7 +25,8 @@ import qualified Data.Text       as T
 import qualified Data.Text.Lazy  as TL
 
 import System.IO
-import System.Directory          (Permissions, getPermissions, doesFileExist, createDirectoryIfMissing, copyFile)
+import System.Exit
+import System.Directory          
 
 import Development.Placeholders  (placeholder)
 
@@ -254,14 +255,21 @@ askEmail t@(Trinker nm gthb Mty           c f) = do putStrLn $ "\n     Für dies
                                                                         askEmail t
 
 -- Backups current state of MateListe
-backupData :: IO ()
-backupData = do putStr "Lege Sicherungskopie der aktuellen Daten an ..."
-                timestamp <- getCurrentTime
-                let name = show timestamp
-                createDirectoryIfMissing True ("./backups/" ++ name) -- will always be missing due to timestamp precision, but creates parents as well this way
-                copyFile "./mateliste.txt"    ("./backups/" ++ name ++ "/mateliste.txt")
-                copyFile "./mateliste.pdf"    ("./backups/" ++ name ++ "/mateliste.pdf")
-                putStrLn $ showFarbe TGruen "OK" ++ "!" 
+backupData :: Bool -> Bool -> IO ()
+backupData False False = putStrLn $ "Lege Sicherungskopie der aktuellen Daten an     ..." ++ (showFarbe TGelb "nicht möglich") ++ ", da keine Daten vorhanden."
+backupData txt   pdf   = do putStr "Lege Sicherungskopie der aktuellen Daten an     ..."
+                            timestamp <- getCurrentTime
+                            let name = show timestamp
+                            createDirectoryIfMissing True ("./backups/" ++ name) -- will always be missing due to timestamp precision, but creates parents as well this way
+                            if txt then copyFile "./mateliste.txt"    ("./backups/" ++ name ++ "/mateliste.txt") else return ()
+                            if pdf then copyFile "./mateliste.pdf"    ("./backups/" ++ name ++ "/mateliste.pdf") else return ()
+                            putStrLn $ showFarbe TGruen " OK" ++ "!" 
+
+clearPermissions :: Bool -> IO Bool
+clearPermissions x = do ptxt  <- getPermissions "./mateliste.txt"
+                        if x then do ptex <- getPermissions "./mateliste.tex"
+                                     return $ and [readable ptxt, readable ptex, writable ptxt, writable ptex]
+                             else return $ and [readable ptxt, writable ptxt]
 
 neuTrinker :: IO Trinker
 neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
@@ -283,27 +291,26 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                          askMailAdress = do putStr "Bitte geben Sie eine gültige E-Mail-Adresse ein (\"default\" für Standard, \"none\" für keine): " ; l <- getLine
                                             case splitOn "@" l of {[""] -> return Mty ; ["none"] -> return NoAdress  ; ["default"] -> return DefaultAdress ; [x,y] -> return (Adress x y) ; _ -> askMailAdress}
 
-listLoop :: IO [Trinker] -> Int -> IO ()
+listLoop :: [Trinker] -> Int -> IO ()
 listLoop xs i = do
-                as <- xs
-                if i >= length as 
+                if i >= length xs 
                    then do putStrLn $ "\n!! Sie haben das " ++ showFarbe TGelb "Ende" ++ " der aktuellen Liste erreicht. !!"
                            putStr     "!! Bitte wählen sie aus: speichern/b(e)enden | (a)bbrechen | (n)euer Trinker | (z)urück : "
                            c <- getLine
                            case c of
                                 "e" -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
-                                       (writeFiles as) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
+                                       (writeFiles xs) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
                                 "a" -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
                                        (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
                                
-                                "n" -> do neu <- neuTrinker ; listLoop (return (as ++ [neu])) i
+                                "n" -> do neu <- neuTrinker ; listLoop (xs ++ [neu]) i
 
                                 "z" -> let z q = max (i-q) 0 in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 _   -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
   
-                   else do let tr = (head . drop i) as
+                   else do let tr = (head . drop i) xs
                            showTrinkerInfo tr
                            putStr "Bitte wählen Sie aus! (a)bbrechen | (b)earbeiten | b(e)enden | (l)öschen | übe(r)schreiben | (v)or | (z)urück : "
                            c <- getLine
@@ -312,34 +319,57 @@ listLoop xs i = do
                                           (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
                                 "e"    -> ifM (frage "Wirklich beenden (bisherige Änderungen werden gespeichert)? Bitte geben Sie \"ok\" ein: ")
-                                          (writeFiles as) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
+                                          (writeFiles xs) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
                                 "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ showFarbe TBlau ((\(Trinker nm _ _ _ _) -> nm) tr) ++ " aus der Liste entfernen: " ; q <- getLine
-                                             if q == "ok" then listLoop (return (take i as ++ drop (i+1) as)) i else listLoop xs i  
+                                             if q == "ok" then listLoop (take i xs ++ drop (i+1) xs) i else listLoop xs i  
 
-                                "r"    -> do neu <- neuTrinker ; listLoop (return (take i as ++ neu:drop (i+1) as)) i
+                                "r"    -> do neu <- neuTrinker ; listLoop (take i xs ++ neu:drop (i+1) xs) i
 
                                 "b"    -> let foobar ti p = do putStr "Bitte geben Sie \"ok\" zum Bestätigen ein: " ; q <- getLine
                                                                case q of "ok" -> do k <- askEmail p
-                                                                                    listLoop (return (take i as ++ k : drop (i+1) as)) (i+1)
+                                                                                    listLoop (take i xs ++ k : drop (i+1) xs) (i+1)
                                                                          ""   -> foobar ti p
                                                                          _    -> putStr "Vorgang abgebrochen. Wiederhole:" >> listLoop xs i
                                           in do p <- (\(Trinker name gth mMail ctr f) -> (getAmounts name >>= processTrinker (Trinker name gth mMail ctr True))) tr
                                                 showTrinkerInfo p ; foobar tr p
 
-                                'v':bs -> let z q = min (i+q) (length as) in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
+                                'v':bs -> let z q = min (i+q) (length xs) in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
                                 'z':bs -> let z q = max (i-q) 0           in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
-                                ""     -> listLoop xs (min (i+1) (length as))
+                                ""     -> listLoop xs (min (i+1) (length xs))
                                 _      -> putStr "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
 
 main :: IO()
 main = do hSetBuffering stdout NoBuffering
 
           putStrLn "++ LambdaList v. 1.0 ++ \n\nWillkommen, User!"
-          putStrLn "Dies ist ein automatisches Matelistenprogramm. Bitte beantworten Sie die Fragen auf dem Schirm."
-          putStr   "Scanne Verzeichnis nach vorhandener mateliste.txt ... "
-          f <- doesFileExist "mateliste.txt"
-          case f of
-             True  -> putStrLn " Liste gefunden!" >> backupData >> listLoop (parseListe "mateliste.txt") 0
-             False -> putStrLn " keine Liste gefunden. Beim Beenden des Programms wird eine neue geschrieben werden." >> listLoop (return []) 0
+          putStrLn "Dies ist ein automatisches Matelistenprogramm. Bitte beantworten Sie die Fragen auf dem Schirm.\n"
+          putStr   "Scanne Verzeichnis nach vorhandener Mateliste   ... "
+          l <- doesFileExist "./mateliste.txt"
+          t <- doesFileExist "./mateliste.tex"
+          p <- doesFileExist "./mateliste.pdf"
+          list <- case l of
+                       True  -> do putStrLn ((showFarbe TGruen "OK") ++ "!")
+                                   putStr "Überprüfe Berechtigungen auf relevanten Dateien ... "
+                                   permsok <- if t then clearPermissions True  -- check tex
+                                                   else clearPermissions False -- don't check tex
+                                   case permsok of
+                                        True  -> putStrLn ((showFarbe TGruen "OK") ++ "!") >> parseListe "./mateliste.txt" 
+                                        False -> do putStrLn $ (showFarbe TRot "Fehlschlag") ++ "!\nBerechtigungen nicht vorhanden, bitte Getränkefuzzi alarmieren!\n\nProgramm wird nun beendet!"
+                                                    exitFailure
+                                                    return []
+                       False -> putStrLn ((showFarbe TRot "Fehlschlag") ++ "! Beim Beenden wird eine neue Datei angelegt werden.") >> return []
+          backupData l p
+          listLoop list 0
+
+
+
+
+
+
+
+
+
+
+
