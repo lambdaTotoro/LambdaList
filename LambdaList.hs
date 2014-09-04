@@ -111,12 +111,12 @@ parseListe fp = do a <- readFile fp
       parseTrinker _         =                     error   "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
 
 writeFiles :: [Trinker] -> IO()
-writeFiles trinker = let strinker = sort trinker in
-                         do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
+writeFiles trinker = let strinker = sort trinker
+                      in do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
                             writeFile "mateliste.txt" $ unlines $ map show strinker
                             writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ map toLaTeX strinker ++ [latexFooter]
                             putStrLn  "fertig!"
-                            putStrLn  "Schreibe jetzt böse E-Mails an alle mit mehr als 10 Euro Schulden..."
+                            putStrLn  "\nZuletzt müssen Benachrichtigungen verschickt werden."
                             sendAllMails strinker
                             putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
@@ -149,14 +149,38 @@ latexFooter =  concat (replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{l
 
 -- Alles um Mails herum
 
-sendAllMails :: [Trinker] -> IO()
-sendAllMails []                                       = putStrLn "...fertig!"
-sendAllMails ((Trinker nm (Guthaben g) mMail c f):xs) = if g < -1000 then sendEvilEmail (Trinker nm (Guthaben g) mMail c f) >> sendAllMails xs
-                                                                     else sendAllMails xs
+processList :: [Trinker] -> Bool -> IO [Trinker]
+processList xs sh = do let fl = filterList xs
+                       case sh of
+                            True  -> putStrLn "Ermittele alle Trinker mit mehr als 10 € Schulden:\n" >> showList fl 0
+                            False -> putStrLn "Eingabe nicht erkannt. Ich wiederhole:"
+                       putStrLn "\nBitte geben Sie ein, an wen alles böse E-Mails verschickt werden sollen."
+                       putStr   "(Durch Kommata getrennte Liste von Nummern, \"none\" für keine oder \"all\" für alle)\nEingabe: "
+                       line <- getLine
+                       case line of
+                            "none" -> putStrLn "--> Es werden keine bösen Mails verschickt." >> return []
+                            "all"  -> putStrLn "--> Böse Mails werden an alle verschickt.\n" >> return fl
+                            _      -> case reads ("[" ++ line ++ "]") of
+                                           [(ys, "")] -> putStrLn "--> Böse Mails werden an ausgewählte Empfänger verschickt.\n" >> return (map (fl !!) ys)
+                                           _          -> processList xs False
+    where
+      showList :: [Trinker] -> Int -> IO ()
+      showList []                              _ = return ()
+      showList (t@(Trinker nm g mMail c f):xs) n = do putStrLn $ "    " ++ show n ++ ":  (" ++ showFarbe TRot (show g) ++ ")  " ++ showFarbe TBlau nm 
+                                                      showList xs (n+1)
 
-sendEvilEmail :: Trinker -> IO()
-sendEvilEmail (Trinker nm _    Mty      _ _) = putStrLn $ showFarbe TRot "->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da noch keine E-Mail-Adresse angegeben wurde."
-sendEvilEmail (Trinker nm _    NoAdress _ _) = putStrLn $ showFarbe TRot "->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
+filterList :: [Trinker] -> [Trinker]
+filterList []                                    = []
+filterList (t@(Trinker _ (Guthaben g) _ _ _):xs) = let rl = filterList xs in if g < -1000 then t:rl else rl
+
+sendAllMails :: [Trinker] -> IO ()
+sendAllMails xs = do lst <- processList xs True
+                     mapM_ sendEvilEmail lst
+                     putStrLn "\nSendevorgang abgeschlossen."
+
+sendEvilEmail :: Trinker -> IO ()
+sendEvilEmail (Trinker nm _    Mty      _ _) = putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da noch keine E-Mail-Adresse angegeben wurde."
+sendEvilEmail (Trinker nm _    NoAdress _ _) = putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
 sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "Fachschaft Technik") $(placeholder "Bitte Mate-Verantwortlichen im Code eintragen!")
                                                   let to      = case mMail of 
                                                                   DefaultAdress -> (Address Nothing (T.pack (nm ++ '@':stdDomain)))
@@ -167,7 +191,7 @@ sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "F
                                                   let body    = plainTextPart $ TL.pack $ composeEvilEmail nm gthb
                                                   let mail    = simpleMail from [to] cc bcc subject [body]
                                                   sendMail stdHost mail
-                                                  putStrLn $ showFarbe TGruen "->" ++ " Böse E-Mail an " ++ showFarbe TBlau nm ++ " erfolgreich versendet."
+                                                  putStrLn $ showFarbe TGruen "    ->" ++ " Böse E-Mail an " ++ showFarbe TBlau nm ++ " erfolgreich versendet."
    where
       composeEvilEmail :: String -> Guthaben -> String
       composeEvilEmail nm g = "Hallo " ++ nm ++ "!\n\nWenn du diese Mail erhältst bedeutet das, dass du mit deinem Matekonto\n(eventuell sogar deutlich) über 10 Euro im Minus bist."
@@ -257,7 +281,7 @@ askEmail t@(Trinker nm gthb Mty           c f) = do putStrLn $ "\n     Für dies
 -- Backups current state of MateListe
 backupData :: Bool -> Bool -> IO ()
 backupData False False = putStrLn $ "Lege Sicherungskopie der aktuellen Daten an     ..." ++ (showFarbe TGelb "nicht möglich") ++ ", da keine Daten vorhanden."
-backupData txt   pdf   = do putStr "Lege Sicherungskopie der aktuellen Daten an     ..."
+backupData txt   pdf   = do putStr  "Lege Sicherungskopie der aktuellen Daten an     ..."
                             timestamp <- getCurrentTime
                             let name = show timestamp
                             createDirectoryIfMissing True ("./backups/" ++ name) -- will always be missing due to timestamp precision, but creates parents as well this way
@@ -266,7 +290,7 @@ backupData txt   pdf   = do putStr "Lege Sicherungskopie der aktuellen Daten an 
                             putStrLn $ showFarbe TGruen " OK" ++ "!" 
 
 clearPermissions :: Bool -> IO Bool
-clearPermissions x = do ptxt  <- getPermissions "./mateliste.txt"
+clearPermissions x = do ptxt <- getPermissions "./mateliste.txt"
                         if x then do ptex <- getPermissions "./mateliste.tex"
                                      return $ and [readable ptxt, readable ptex, writable ptxt, writable ptex]
                              else return $ and [readable ptxt, writable ptxt]
@@ -340,7 +364,7 @@ listLoop xs i = do
                                 ""     -> listLoop xs (min (i+1) (length xs))
                                 _      -> putStr "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
 
-main :: IO()
+main :: IO ()
 main = do hSetBuffering stdout NoBuffering
 
           putStrLn "++ LambdaList v. 1.0 ++ \n\nWillkommen, User!"
