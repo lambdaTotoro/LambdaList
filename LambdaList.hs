@@ -48,6 +48,8 @@ newtype Guthaben = Guthaben Int
 
 data NInterp     = NNull | NNothing
 
+data NumberType  = Money | Amount
+
 data MailAdress  = Adress User Domain -- user provided an e-mail adress
                  | DefaultAdress      -- user has the standard e-mail pattern
                  | NoAdress           -- user provided no e-mail adress
@@ -234,6 +236,33 @@ cleanGuthaben :: String -> Maybe Int
 cleanGuthaben s = case readInt NNull $ filter (not . (`elem` ",.")) s
                        of {Just n -> Just n ; _ -> Nothing}
 
+parseNumber:: NumberType -> String -> IO Int
+parseNumber nmbt str = let retry = putStrLn "-- Eingabe ungültig!" >> parseNumber nmbt str
+                       in  do putStr str ; x <- getLine
+                              case nmbt of
+                                   Money  -> let ps = splitOn "," x
+                                             in  case length ps of
+                                                      1 -> case readInt NNull x of  -- parse cents only
+                                                                Nothing -> retry
+                                                                Just n  -> if n == 0 then return 0
+                                                                                     else do putStr $ "Eingabe unklar: " ++ show n ++ " (E)uro oder (C)ents? "
+                                                                                             y <- getLine
+                                                                                             case y of
+                                                                                                 "E" -> return $ 100*n
+                                                                                                 "C" -> return n
+                                                                                                 _   -> retry
+                                                      2 -> let  h = head ps ; t = last ps -- parse euros
+                                                            in  case readInt NNull h of
+                                                                     Nothing  -> retry
+                                                                     Just eur -> case readInt NNothing t of
+                                                                                      Nothing -> retry
+                                                                                      Just ct -> case length t of 
+                                                                                                      1 -> return $ 100*eur + 10*ct
+                                                                                                      2 -> return $ 100*eur + ct
+                                                                                                      _ -> retry
+                                                      _ -> retry -- more than one ',' fails
+                                   Amount -> case readInt NNull x of {Just n  -> return n ; Nothing -> retry} 
+
 frage :: String -> IO Bool
 frage fr = do putStr fr ; q <- getLine
               return (q == "ok")
@@ -251,17 +280,12 @@ processTrinker (Trinker nm (Guthaben gld) mMail cntr _) werte@[enzhlng, nnzg, sb
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
 getAmounts :: Name -> IO [Int]
-getAmounts nm = mapM (abfrage nm) fragen
+getAmounts nm = do a <- parseNumber Money ("-- Wie viel Geld hat " ++ nm ++ " eingezahlt? ")
+                   b <- mapM (parseNumber Amount) $ map (strichFragen nm) ["90", "70", "50", "20", "10", " 5"]
+                   return $ a:b
     where
-      fragen :: [String]
-      fragen = ("-- Wie viel Geld hat " ++ nm ++ showFarbe TGelb " in Cent" ++ " eingezahlt? "):map (strichFragen nm) ["90", "70", "50", "20", "10", " 5"]
-     
       strichFragen :: Name -> String -> String
       strichFragen nm amnt = "-- Wie viele Striche hat " ++ nm ++ " in der Spalte für " ++ amnt ++ " Cent? "
-
-      abfrage :: Name -> String -> IO Int
-      abfrage nm frg = do putStr frg ; x <- getLine
-                          case readInt NNull x of {Just n  -> return n ; Nothing -> putStr "-- Eingabe unklar!" >> abfrage nm frg}
 
 askEmail :: Trinker -> IO Trinker
 askEmail t@(Trinker nm gthb (Adress u d)  c f) = return t
@@ -308,8 +332,7 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
                                       case n of {"" -> askName ; x -> return x}
 
                          askKontostand :: IO Int
-                         askKontostand = do putStr $ "Bitte geben Sie einen validen Kontostand " ++ showFarbe TGelb "in Cent" ++ " ein: " ; l <- getLine
-                                            case readInt NNull l of {Just d -> return d ; _ -> askKontostand}
+                         askKontostand = parseNumber Money "Bitte geben Sie einen validen Kontostand ein: "
 
                          askMailAdress :: IO MailAdress
                          askMailAdress = do putStr "Bitte geben Sie eine gültige E-Mail-Adresse ein (\"default\" für Standard, \"none\" für keine): " ; l <- getLine
