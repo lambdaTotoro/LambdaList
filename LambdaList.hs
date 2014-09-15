@@ -38,8 +38,6 @@ import Network.Mail.SMTP
 -- Kung-Fu mit Typen
 
 type Name        = String
-type Counter     = Int
-type Flag        = Bool
 type User        = String
 type Domain      = String
 
@@ -55,13 +53,20 @@ data MailAdress  = Adress User Domain -- user provided an e-mail adress
                  | Mty                -- E-mail adress was not evaluated until now
 
 data TColor      = TBlau | TGruen | TRot | TGelb
-data Trinker     = Trinker Name Guthaben MailAdress Counter Flag
+
+-- Record Syntax! :3
+data Trinker     = Trinker { name     :: String
+                           , guthaben :: Guthaben
+                           , mailadr  :: MailAdress
+                           , counter  :: Int
+                           , inactive :: Bool
+                           }
 
 instance Eq Trinker where
-    (Trinker a _ _ _ _) == (Trinker x _ _ _ _) = a == x
+      t0 == t1 = (name t0) == (name t1)
 
 instance Ord Trinker where
-    compare (Trinker a _ _ _ _)  (Trinker x _ _ _ _) = compare a x
+    compare t0 t1 = compare (name t0) (name t1)
 
 instance Show Trinker where
     show (Trinker a b c d f) = intercalate ";" updatedWerte
@@ -172,7 +177,7 @@ processList xs sh = do let fl = filterList xs
 
 filterList :: [Trinker] -> [Trinker]
 filterList []                                    = []
-filterList (t@(Trinker _ (Guthaben g) _ _ _):xs) = let rl = filterList xs in if g < -1000 then t:rl else rl
+filterList (t:xs) = let rl = filterList xs in if (unwrapGuthaben . guthaben) t < -1000 then t:rl else rl
 
 sendAllMails :: [Trinker] -> IO ()
 sendAllMails xs = do lst <- processList xs True
@@ -180,21 +185,22 @@ sendAllMails xs = do lst <- processList xs True
                      putStrLn "\nSendevorgang abgeschlossen."
 
 sendEvilEmail :: Trinker -> IO ()
-sendEvilEmail (Trinker nm _    Mty      _ _) = putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da noch keine E-Mail-Adresse angegeben wurde."
-sendEvilEmail (Trinker nm _    NoAdress _ _) = putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau nm ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
-sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "Fachschaft Technik") $(placeholder "Bitte Mate-Verantwortlichen im Code eintragen!")
-                                                  let to      = case mMail of 
-                                                                  DefaultAdress -> (Address Nothing (T.pack (nm ++ '@':stdDomain)))
-                                                                  (Adress u d)  -> (Address Nothing (T.pack (u  ++ '@':d)))
-                                                  let cc      = [$(placeholder "Bitte CC-Verantwortlichen im Code eintragen")]
-                                                  let bcc     = []
-                                                  let subject = "[Fachschaft Technik] Mate-Konto ausgleichen!"
-                                                  let body    = plainTextPart $ TL.pack $ composeEvilEmail nm gthb
-                                                  let mail    = simpleMail from [to] cc bcc subject [body]
-                                                  sendMail stdHost mail
-                                                  putStrLn $ showFarbe TGruen "    ->" ++ " Böse E-Mail an " ++ showFarbe TBlau nm ++ " erfolgreich versendet."
+sendEvilEmail t = case mailadr t of
+                       Mty      -> putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau (name t) ++ " senden, da noch keine E-Mail-Adresse angegeben wurde."
+                       NoAdress -> putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau (name t) ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
+                       mMail    -> do let from  = Address (Just "Fachschaft Technik") $(placeholder "Bitte Mate-Verantwortlichen im Code eintragen!")
+                                      let to      = case mMail of 
+                                                         DefaultAdress -> (Address Nothing (T.pack ((name t) ++ '@':stdDomain)))
+                                                         (Adress u d)  -> (Address Nothing (T.pack (u  ++ '@':d)))
+                                      let cc      = [$(placeholder "Bitte CC-Verantwortlichen im Code eintragen")]
+                                      let bcc     = []
+                                      let subject = "[Fachschaft Technik] Mate-Konto ausgleichen!"
+                                      let body    = plainTextPart $ TL.pack $ composeEvilEmail (name t) (guthaben t)
+                                      let mail    = simpleMail from [to] cc bcc subject [body]
+                                      sendMail stdHost mail
+                                      putStrLn $ showFarbe TGruen "    ->" ++ " Böse E-Mail an " ++ showFarbe TBlau (name t) ++ " erfolgreich versendet."
    where
-      composeEvilEmail :: String -> Guthaben -> String
+      composeEvilEmail :: Name -> Guthaben -> String
       composeEvilEmail nm g = "Hallo " ++ nm ++ "!\n\nWenn du diese Mail erhältst bedeutet das, dass du mit deinem Matekonto\n(eventuell sogar deutlich) über 10 Euro im Minus bist."
                               ++ "\nGenauer gesagt ist dein Guthaben auf der Mateliste aktuell: EUR " ++ show g ++ "\n\n"
                               ++ "Es handelt sich hier generell um ein Prepaid-Konto und wenn zu viele\nLeute zu stark im Minus sind, bedeutet das, dass wir keine Mate"
@@ -207,6 +213,9 @@ sendEvilEmail (Trinker nm gthb mMail    _ _) = do let from    = Address (Just "F
                               ++ "Missverständnissen kommt.\n\nVielen Dank!\n\nLiebe Grüße,\n  euer automatisiertes Matekonto-Benachrichtigungsprogramm\n   (i.A. für die Fachschaft Technik)" 
 
 -- Helferfunktionen und Trivialitäten:
+
+unwrapGuthaben :: Guthaben -> Int
+unwrapGuthaben (Guthaben g) = g
 
 readInt :: NInterp -> String -> Maybe Int
 readInt NNull    "" = Just 0
@@ -226,10 +235,10 @@ showGuthaben gld@(Guthaben betr)
     | otherwise = showFarbe TGruen $ show gld
 
 showTrinkerInfo :: Trinker -> IO ()
-showTrinkerInfo (Trinker nm gld nMail ctr _) = putStrLn $ "\nDer User " ++ showFarbe TBlau nm ++ inac ++ " hat derzeit einen Kontostand von " ++ showGuthaben gld ++ "."
+showTrinkerInfo t = putStrLn $ "\nDer User " ++ showFarbe TBlau (name t) ++ inac ++ " hat derzeit einen Kontostand von " ++ showGuthaben (guthaben t) ++ "."
     where
       inac :: String
-      inac = if ctr == 0 then "" else " (" ++ show ctr ++ " Mal inaktiv)"
+      inac = if (counter t) == 0 then "" else " (" ++ show (counter t) ++ " Mal inaktiv)"
 
 cleanGuthaben :: String -> Maybe Int
 cleanGuthaben s = case readInt NNull $ filter (not . (`elem` ",.")) s
@@ -272,9 +281,9 @@ ifM p a b = do { p' <- p ; if p' then a else b }
 -- Hauptprogrammlogik:
 
 processTrinker :: Trinker -> [Int] -> IO Trinker 
-processTrinker (Trinker nm (Guthaben gld) mMail cntr _) werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
-               = return $ if all (==0) werte then Trinker nm (Guthaben gld)                          mMail (cntr+1) True
-                                             else Trinker nm (Guthaben (gld + enzhlng - vertrunken)) mMail 0        True
+processTrinker t werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
+               = return $ if all (==0) werte then Trinker (name t) (guthaben t)                                                      (mailadr t) ((counter t) + 1) True
+                                             else Trinker (name t) (Guthaben ((unwrapGuthaben . guthaben) t + enzhlng - vertrunken)) (mailadr t) 0                 True
     where
       vertrunken = sum $ zipWith (*) [90, 70, 50, 20, 10, 5] (tail werte)
 
@@ -408,14 +417,3 @@ main = do hSetBuffering stdout NoBuffering
                        False -> putStrLn ((showFarbe TRot "Fehlschlag") ++ "! Beim Beenden wird eine neue Datei angelegt werden.") >> return []
           backupData l p
           listLoop list 0
-
-
-
-
-
-
-
-
-
-
-
