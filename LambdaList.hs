@@ -64,6 +64,7 @@ data Config      = Config { stdDomain  :: String
                           , absender   :: String
                           , logcc      :: String
                           , grenze     :: Int
+                          , extra      :: Int
                           , kontodaten :: String
                           }
 
@@ -129,7 +130,7 @@ toLaTeX conf (Trinker nm gb@(Guthaben b) _ _ _)
     | otherwise         =                              latexRow
       where
         latexRow :: String
-        latexRow = nm ++ "&" ++ show gb ++ "& & & & & & \\\\\n\\hline"
+        latexRow = nm ++ "&" ++ show gb ++ "& & & & & & \\\\\n" ++ if b > (extra conf) then "& & & & & & & \\\\\n\\hline" else "\\hline"
 
 latexHeader :: String
 latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[utf8]{inputenc}\n"
@@ -275,14 +276,15 @@ ifM :: Monad m => m Bool -> m b -> m b -> m b
 ifM p a b = do { p' <- p ; if p' then a else b }
 
 parseConfig :: String -> String -> Config
-parseConfig mconf kconf = Config (ls !! 0) (ls !! 1) (ls !! 2) (ls !! 3) threshold ks
+parseConfig mconf kconf = Config (ls !! 0) (ls !! 1) (ls !! 2) (ls !! 3) threshold extra ks
   where
     ls = let content = (lines . clearConf) mconf
-          in if length content == 5
+          in if length content == 6
                 then content
                 else error "Fehler in Konfigurationsdatei!"
 
     ks        = clearConf kconf
+    extra     = case readInt NNothing (ls !! 5) of { Just n -> n ; Nothing -> 5000 }
     threshold = case readInt NNothing (ls !! 4) of { Just n -> n ; Nothing -> 0 }
 
     clearConf :: String -> String
