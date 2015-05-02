@@ -366,17 +366,17 @@ listLoop xs conf i = do
                                 putStr     "!! Bitte wählen sie aus: speichern/b(e)enden | (a)bbrechen | (n)euer Trinker | (z)urück : "
                                 c <- getLine
                                 case c of
-                                     "e" -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
-                                            (writeFiles xs conf) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs conf i)
+                                     "e"    -> ifM (frage "Wirklich beenden (bisherige Änderungen werden geschrieben)? Bitte geben Sie \"ok\" ein: ")
+                                               (writeFiles xs conf) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs conf i)
 
-                                     "a" -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
-                                            (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs conf i)
+                                     "a"    -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
+                                               (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs conf i)
 
-                                     "n" -> do neu <- neuTrinker ; listLoop (xs ++ [neu]) conf i
+                                     "n"    -> do neu <- neuTrinker ; listLoop (xs ++ [neu]) conf i
 
-                                     "z" -> let z q = max (i-q) 0 in case (readInt NNothing . tail) c of {Nothing -> listLoop xs conf (z 1); Just n -> listLoop xs conf (z n)}
+                                     'z':bs -> let z q = max (i-q) 0 in case (readInt NNothing . tail) c of {Nothing -> listLoop xs conf (z 1); Just n -> listLoop xs conf (z n)}
 
-                                     _   -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs conf i
+                                     _      -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs conf i
 
                         else do let tr = (head . drop i) xs
                                 showTrinkerInfo tr
