@@ -1,17 +1,17 @@
- {-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
+ {-# LANGUAGE OverloadedStrings #-}
 
 -- ######################################################
 -- #                                                    #
--- #	== LambdaList ==                                #
+-- #    == LambdaList ==                                #
 -- #                                                    #
 -- #    Ein kleines Haskellprogramm; geeignet um die    #
 -- #    Getränkeliste der Fachschaft Technik an der     #
 -- #    Uni Bielefeld zu managen.                       #
 -- #                                                    #
--- #	Geschrieben von Jonas Betzendahl, 2013/14       #
+-- #    Geschrieben von Jonas Betzendahl, 2013-15       #
 -- #    jbetzend@techfak.uni-bielefeld.de               #
 -- #                                                    #
--- #	Lizenz: CC0 / Public Domain                     #
+-- #    Lizenz: CC0 / Public Domain                     #
 -- #                                                    #
 -- ######################################################
 
