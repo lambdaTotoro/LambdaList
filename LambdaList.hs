@@ -26,7 +26,7 @@ import qualified Data.Text.Lazy  as TL
 
 import System.IO
 import System.Exit
-import System.Directory          
+import System.Directory
 
 import Development.Placeholders  (placeholder)
 
@@ -76,7 +76,7 @@ instance Show Trinker where
 
           showMail :: MailAdress -> String -> String
           showMail (Adress u d)    _  = u  ++ '@':d
-          showMail (DefaultAdress) nm = nm ++ '@':stdDomain  
+          showMail (DefaultAdress) nm = nm ++ '@':stdDomain
           showMail (NoAdress)      _  = "n/a"
           showMail (Mty)           _  = ""
 
@@ -84,7 +84,7 @@ instance Show Guthaben where
     show (Guthaben n) = addMinus $ show (div (abs n - a) 100) ++ "." ++ addZeros (show a)
          where a = abs n `mod` 100
                addMinus = if n >= 0 then id else ("-" ++)
-               addZeros 
+               addZeros
                   | abs a <= 9 = ("0" ++)
                   | otherwise  = id
 
@@ -92,14 +92,14 @@ instance Show Guthaben where
 -- Hier bitte eigene Werte einfügen
 
 stdDomain :: String
-stdDomain = $(placeholder "Bitte eigene Standard-Domain im Code angeben!") 
+stdDomain = $(placeholder "Bitte eigene Standard-Domain im Code angeben!")
 
 stdHost :: String
 stdHost   = $(placeholder "Bitte eigenen Standard-Host für ausgehende Mails im Code angeben!")
 
 -- Datei - Ein- und Ausgabe
 
-parseListe :: FilePath -> IO [Trinker] 
+parseListe :: FilePath -> IO [Trinker]
 parseListe fp = do a <- readFile fp
                    return $ map (parseTrinker . splitOn ";") (lines a)
     where
@@ -107,7 +107,7 @@ parseListe fp = do a <- readFile fp
       parseTrinker [a,b,c]   = parseTrinker [a,b,"",c]
       parseTrinker [a,b,c,d] = case cleanGuthaben b of
                                   Just u -> case readInt NNothing d of
-                                     Just k  -> case splitOn "@" c of 
+                                     Just k  -> case splitOn "@" c of
                                         [y,z]   -> Trinker a (Guthaben u) (Adress y z) k False -- with E-Mail
                                         ["n/a"] -> Trinker a (Guthaben u) NoAdress     k False -- without E-Mail (silent)
                                         [""]    -> Trinker a (Guthaben u) Mty          k False -- without E-Mail (vocal)
@@ -172,7 +172,7 @@ processList xs sh = do let fl = filterList xs
     where
       showList :: [Trinker] -> Int -> IO ()
       showList []                              _ = return ()
-      showList (t@(Trinker nm g mMail c f):xs) n = do putStrLn $ "    " ++ show n ++ ":  (" ++ showFarbe TRot (show g) ++ ")  " ++ showFarbe TBlau nm 
+      showList (t@(Trinker nm g mMail c f):xs) n = do putStrLn $ "    " ++ show n ++ ":  (" ++ showFarbe TRot (show g) ++ ")  " ++ showFarbe TBlau nm
                                                       showList xs (n+1)
 
 filterList :: [Trinker] -> [Trinker]
@@ -189,7 +189,7 @@ sendEvilEmail t = case mailadr t of
                        Mty      -> putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau (name t) ++ " senden, da noch keine E-Mail-Adresse angegeben wurde."
                        NoAdress -> putStrLn $ showFarbe TRot "    ->" ++ " Konnte keine böse E-Mail an " ++ showFarbe TBlau (name t) ++ " senden, da keine E-Mail-Adresse eingetragen wurde."
                        mMail    -> do let from  = Address (Just "Fachschaft Technik") $(placeholder "Bitte Mate-Verantwortlichen im Code eintragen!")
-                                      let to      = case mMail of 
+                                      let to      = case mMail of
                                                          DefaultAdress -> (Address Nothing (T.pack ((name t) ++ '@':stdDomain)))
                                                          (Adress u d)  -> (Address Nothing (T.pack (u  ++ '@':d)))
                                       let cc      = [$(placeholder "Bitte CC-Verantwortlichen im Code eintragen")]
@@ -208,9 +208,9 @@ sendEvilEmail t = case mailadr t of
                               ++ "Du kannst uns natürlich auch einfach etwas überweisen. Kontoverbindung:\n\n" ++ $(placeholder "Bitte Kontodaten im Code eintragen!") ++ "\n\n"
                               ++ "Bitte nicht vergessen, euren Login oder Namen in den Verwendungszweck\nzu packen, sodass man euch identifizieren kann. Inzwischen kann man\n"
                               ++ "auch in der Fachschaft Bargeld hinterlegen, wenn mal der Mate-Fuzzi\nnicht da ist. Bittet dazu einfach einen beliebigen Fachschaftler\n"
-                              ++ "das Geld im entsprechenden Briefumschlag in der Protokollkasse zu\ndeponieren.\n\n" 
+                              ++ "das Geld im entsprechenden Briefumschlag in der Protokollkasse zu\ndeponieren.\n\n"
                               ++ "Vergesst bitte auch nicht euch auf der Liste in der Fachschaft euer\nentsprechendes Plus unter \"Guthaben\" zu notieren, damit es nicht zu\n"
-                              ++ "Missverständnissen kommt.\n\nVielen Dank!\n\nLiebe Grüße,\n  euer automatisiertes Matekonto-Benachrichtigungsprogramm\n   (i.A. für die Fachschaft Technik)" 
+                              ++ "Missverständnissen kommt.\n\nVielen Dank!\n\nLiebe Grüße,\n  euer automatisiertes Matekonto-Benachrichtigungsprogramm\n   (i.A. für die Fachschaft Technik)"
 
 -- Helferfunktionen und Trivialitäten:
 
@@ -241,7 +241,7 @@ showTrinkerInfo t = putStrLn $ "\nDer User " ++ showFarbe TBlau (name t) ++ inac
       inac = if (counter t) == 0 then "" else " (" ++ show (counter t) ++ " Mal inaktiv)"
 
 cleanGuthaben :: String -> Maybe Int
-cleanGuthaben s = case readInt NNull $ filter (not . (`elem` ",.")) s
+cleanGuthaben s = case readInt NNull $ filter (\c -> (c /= '.') && (c /= ',') ) s
                        of {Just n -> Just n ; _ -> Nothing}
 
 parseNumber:: NumberType -> String -> IO Int
@@ -264,12 +264,12 @@ parseNumber nmbt str = let retry = putStrLn "-- Eingabe ungültig!" >> parseNumb
                                                                      Nothing  -> retry
                                                                      Just eur -> case readInt NNothing t of
                                                                                       Nothing -> retry
-                                                                                      Just ct -> case length t of 
+                                                                                      Just ct -> case length t of
                                                                                                       1 -> return $ 100*eur + 10*ct
                                                                                                       2 -> return $ 100*eur + ct
                                                                                                       _ -> retry
                                                       _ -> retry -- more than one ',' fails
-                                   Amount -> case readInt NNull x of {Just n  -> return n ; Nothing -> retry} 
+                                   Amount -> case readInt NNull x of {Just n  -> return n ; Nothing -> retry}
 
 frage :: String -> IO Bool
 frage fr = do putStr fr ; q <- getLine
@@ -280,7 +280,7 @@ ifM p a b = do { p' <- p ; if p' then a else b }
 
 -- Hauptprogrammlogik:
 
-processTrinker :: Trinker -> [Int] -> IO Trinker 
+processTrinker :: Trinker -> [Int] -> IO Trinker
 processTrinker t werte@[enzhlng, nnzg, sbzg, fnfzg, zwnzg, zhn, fnf]
                = return $ if all (==0) werte then Trinker (name t) (guthaben t)                                                      (mailadr t) ((counter t) + 1) True
                                              else Trinker (name t) (Guthaben ((unwrapGuthaben . guthaben) t + enzhlng - vertrunken)) (mailadr t) 0                 True
@@ -299,7 +299,7 @@ askEmail :: Trinker -> IO Trinker
 askEmail t@(Trinker nm gthb (Adress u d)  c f) = return t
 askEmail t@(Trinker nm gthb DefaultAdress c f) = return t
 askEmail t@(Trinker nm gthb NoAdress      c f) = return t
-askEmail t@(Trinker nm gthb Mty           c f) = do putStrLn $ "\n     Für diesen Trinker wurde noch " ++ showFarbe TRot "keine E-Mail-Adresse" ++ " eingetragen." 
+askEmail t@(Trinker nm gthb Mty           c f) = do putStrLn $ "\n     Für diesen Trinker wurde noch " ++ showFarbe TRot "keine E-Mail-Adresse" ++ " eingetragen."
                                                     putStr     "     Bitte geben Sie eine gültige Adresse ein (\"default\" für den Standard, \"none\" für keine): "
                                                     l <- getLine
                                                     case splitOn "@" l of
@@ -319,7 +319,7 @@ backupData txt   pdf   = do putStr  "Lege Sicherungskopie der aktuellen Daten an
                             createDirectoryIfMissing True ("./backups/" ++ name) -- will always be missing due to timestamp precision, but creates parents as well this way
                             if txt then copyFile "./mateliste.txt"    ("./backups/" ++ name ++ "/mateliste.txt") else return ()
                             if pdf then copyFile "./mateliste.pdf"    ("./backups/" ++ name ++ "/mateliste.pdf") else return ()
-                            putStrLn $ showFarbe TGruen " OK" ++ "!" 
+                            putStrLn $ showFarbe TGruen " OK" ++ "!"
 
 clearPermissions :: Bool -> IO Bool
 clearPermissions x = do ptxt <- getPermissions "./mateliste.txt"
@@ -348,7 +348,7 @@ neuTrinker = do putStrLn "Neuer Trinker wird erstellt."
 
 listLoop :: [Trinker] -> Int -> IO ()
 listLoop xs i = do
-                if i >= length xs 
+                if i >= length xs
                    then do putStrLn $ "\n!! Sie haben das " ++ showFarbe TGelb "Ende" ++ " der aktuellen Liste erreicht. !!"
                            putStr     "!! Bitte wählen sie aus: speichern/b(e)enden | (a)bbrechen | (n)euer Trinker | (z)urück : "
                            c <- getLine
@@ -358,13 +358,13 @@ listLoop xs i = do
 
                                 "a" -> ifM (frage "Wirklich abbrechen (bisherige Änderungen werden verworfen)? Bitte geben Sie \"ok\" ein: ")
                                        (putStrLn "Dann bis zum nächsten Mal! :)") (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
-                               
+
                                 "n" -> do neu <- neuTrinker ; listLoop (xs ++ [neu]) i
 
                                 "z" -> let z q = max (i-q) 0 in case (readInt NNothing . tail) c of {Nothing -> listLoop xs (z 1); Just n -> listLoop xs (z n)}
 
                                 _   -> putStrLn "Eingabe nicht verstanden. Ich wiederhole: " >> listLoop xs i
-  
+
                    else do let tr = (head . drop i) xs
                            showTrinkerInfo tr
                            putStr "Bitte wählen Sie aus! (a)bbrechen | (b)earbeiten | b(e)enden | (l)öschen | übe(r)schreiben | (v)or | (z)urück : "
@@ -377,7 +377,7 @@ listLoop xs i = do
                                           (writeFiles xs) (putStrLn "Doch nicht? Okay, weiter geht's!" >> listLoop xs i)
 
                                 "l"    -> do putStr $ "Bitte geben Sie \"ok\" ein um " ++ showFarbe TBlau ((\(Trinker nm _ _ _ _) -> nm) tr) ++ " aus der Liste entfernen: " ; q <- getLine
-                                             if q == "ok" then listLoop (take i xs ++ drop (i+1) xs) i else listLoop xs i  
+                                             if q == "ok" then listLoop (take i xs ++ drop (i+1) xs) i else listLoop xs i
 
                                 "r"    -> do neu <- neuTrinker ; listLoop (take i xs ++ neu:drop (i+1) xs) i
 
@@ -410,7 +410,7 @@ main = do hSetBuffering stdout NoBuffering
                                    permsok <- if t then clearPermissions True  -- check tex
                                                    else clearPermissions False -- don't check tex
                                    case permsok of
-                                        True  -> putStrLn ((showFarbe TGruen "OK") ++ "!") >> parseListe "./mateliste.txt" 
+                                        True  -> putStrLn ((showFarbe TGruen "OK") ++ "!") >> parseListe "./mateliste.txt"
                                         False -> do putStrLn $ (showFarbe TRot "Fehlschlag") ++ "!\nBerechtigungen nicht vorhanden, bitte Getränkefuzzi alarmieren!\n\nProgramm wird nun beendet!"
                                                     exitFailure
                                                     return []
