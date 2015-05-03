@@ -27,6 +27,7 @@ import qualified Data.Text.Lazy  as TL
 import System.IO
 import System.Exit
 import System.Directory
+import System.Posix.Files
 
 import Network.Mail.SMTP
 
@@ -114,13 +115,23 @@ parseListe fp = do a <- readFile fp
       parseTrinker _         =                     error   "Parsingfehler: inkorrekte Anzahl Elemente in mindestens einer Zeile"
 
 writeFiles :: [Trinker] -> Config -> IO()
-writeFiles trinker c = let strinker = sort trinker
+writeFiles trinker c = let sortedTrinker = sort trinker
                         in do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
-                              writeFile "mateliste.txt" $ unlines $ map show strinker
-                              writeFile "mateliste.tex" $ unlines $ [latexHeader] ++ map (toLaTeX c) strinker ++ [latexFooter]
+
+                              -- Removing old files so we're owners of the new ones
+                              removeFile "mateliste.txt"
+                              removeFile "mateliste.tex"
+
+                              -- Creating new files!
+                              writeFile   "mateliste.txt" $ unlines $ map show sortedTrinker
+                              writeFile   "mateliste.tex" $ unlines $ [latexHeader] ++ (map (toLaTeX c)) sortedTrinker ++ [latexFooter]
+
+                              setFileMode "mateliste.txt" stdFileMode
+                              setFileMode "mateliste.tex" stdFileMode
+
                               putStrLn  "fertig!"
                               putStrLn  "\nZuletzt müssen Benachrichtigungen verschickt werden."
-                              sendAllMails strinker c
+                              sendAllMails sortedTrinker c
                               putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
 toLaTeX :: Config -> Trinker -> String
@@ -427,6 +438,7 @@ main = do hSetBuffering stdout NoBuffering
           l <- doesFileExist "./mateliste.txt"
           t <- doesFileExist "./mateliste.tex"
           p <- doesFileExist "./mateliste.pdf"
+
           list <- case l of
                        True  -> do putStrLn ((showFarbe TGruen "OK") ++ "!")
                                    putStr "Überprüfe Berechtigungen auf relevanten Dateien ... "
@@ -438,5 +450,6 @@ main = do hSetBuffering stdout NoBuffering
                                                     exitFailure
                                                     return []
                        False -> putStrLn ((showFarbe TRot "Fehlschlag") ++ "! Beim Beenden wird eine neue Datei angelegt werden.") >> return []
+
           backupData l p
           listLoop list conf 0
