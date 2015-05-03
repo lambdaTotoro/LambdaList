@@ -119,8 +119,8 @@ writeFiles trinker c = let sortedTrinker = sort trinker
                         in do putStr    "\nSchreibe .txt und .tex auf Festplatte ... "
 
                               -- Removing old files so we're owners of the new ones
-                              removeFile "mateliste.txt"
-                              removeFile "mateliste.tex"
+                              ifM (doesFileExist "mateliste.txt") (removeFile "mateliste.txt") (return ())
+                              ifM (doesFileExist "mateliste.tex") (removeFile "mateliste.tex") (return ())
 
                               -- Creating new files!
                               writeFile   "mateliste.txt" $ unlines $ map show sortedTrinker
