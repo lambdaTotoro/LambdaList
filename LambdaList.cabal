@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                LambdaList
-version:             0.1.1.0
+version:             1.2.0.0
 synopsis:            A small haskell program to manage a tally sheet.
 -- description:         
 license:             PublicDomain

@@ -422,7 +422,7 @@ listLoop xs conf i = do
 main :: IO ()
 main = do hSetBuffering stdout NoBuffering
 
-          putStrLn "++ LambdaList v. 1.1 ++ \n\nWillkommen, User!"
+          putStrLn "++ LambdaList v. 1.2 ++ \n\nWillkommen, User!"
           putStrLn "Dies ist ein automatisches Matelistenprogramm. Bitte beantworten Sie die Fragen auf dem Schirm.\n"
           putStr   "Scanne Verzeichnis nach vorhandener Mateliste   ... "
 
