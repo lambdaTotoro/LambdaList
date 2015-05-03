@@ -166,7 +166,7 @@ latexFooter =  concat (replicate 10 "& & & & & & & \\\\\n\\hline\n") ++ "\\end{l
 processList :: Config -> [Trinker] -> Bool -> IO [Trinker]
 processList c xs sh = do let fl = filterList c xs
                          case sh of
-                              True  -> putStrLn "Ermittele alle Trinker mit mehr als 10 € Schulden:\n" >> showList fl 0
+                              True  -> putStrLn ("Ermittele alle Trinker mit einem Guthaben von " ++ show (Guthaben (grenze c)) ++ " oder weniger:\n") >> showList fl 0
                               False -> putStrLn "Eingabe nicht erkannt. Ich wiederhole:"
                          putStrLn "\nBitte geben Sie ein, an wen alles böse E-Mails verschickt werden sollen."
                          putStr   "(Durch Kommata getrennte Liste von Nummern, \"none\" für keine oder \"all\" für alle)\nEingabe: "
