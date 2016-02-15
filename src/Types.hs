@@ -10,4 +10,8 @@ data User = User { name         :: String
                  , last_changed :: UTCTime  
                  }
 
-type LambdaList = RWST () () () IO
+data State = State { list  :: [User]
+                   , index :: Int
+                   }
+
+type LambdaList = RWST () () State IO
