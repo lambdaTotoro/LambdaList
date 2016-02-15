@@ -19,7 +19,8 @@ executable LambdaList
   main-is:             Main.hs
   -- other-modules:       
   other-extensions:    OverloadedStrings
-  build-depends:       base >=4.8,
+  build-depends:       attoparsec >=0.13,
+                       base >=4.8,
                        time >=1.5,
                        transformers >= 0.5.1
   hs-source-dirs:      src
