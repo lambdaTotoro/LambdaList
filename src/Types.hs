@@ -4,6 +4,8 @@ import Control.Monad.Trans.RWS.Lazy
 
 import Data.Time
 
+newtype Balance = Balance Integer
+
 data Env = Env { host         :: String       -- host for emails
                , from_address :: String       -- sender address for angry emails
                , cc_address   :: Maybe String -- CC address for angry emails
@@ -14,7 +16,7 @@ data Env = Env { host         :: String       -- host for emails
 
 data User  = User  { name         :: String
                    , mailaddress  :: Maybe String
-                   , balance      :: Integer
+                   , balance      :: Balance
                    , last_changed :: UTCTime  
                    }
 
