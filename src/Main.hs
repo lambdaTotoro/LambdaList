@@ -26,6 +26,7 @@ main = do hSetBuffering stdout NoBuffering
 
           if conf_exists then putStrLn "[+] Konfigurationsdatei gefunden!"
                          else do putStrLn "[-] Keine Konfigurationsdatei (config.txt) gefunden!"
+                                 createEnvironment 
 
           if list_exists then putStrLn "[+] Benutzerliste gefunden!"
                          else do putStrLn "[-] Keine Benutzerliste (mateliste.txt) gefunden!"
@@ -34,10 +35,15 @@ main = do hSetBuffering stdout NoBuffering
                          else putStrLn "[-] Keinen Mailtext für Erinnerungsmails (mail.txt) gefunden!" >> exitFailure
 
           if temp_exists then do putStrLn "\n~~ Temporären Dateien gefunden! ~~"
-                         else putStrLn "\nKeine temporäre Dateien gefunden; starte neue Auswertung!"
+                                 cont <- question "von vorherigem Speicherstand fortsetzen?"
 
-          let env = undefined :: Env
-          let ini = undefined :: State
+                                 if cont then undefined
+                                         else undefined
+
+                         else do putStrLn "\nKeine temporäre Dateien gefunden; starte neue Auswertung!"
+
+                                 let env = undefined :: Env
+                                 let ini = undefined :: State
    
-          final <- list . fst <$> execRWST interactionLoop env ini
-          print final
+                                 final <- list . fst <$> execRWST interactionLoop env ini
+                                 print final
