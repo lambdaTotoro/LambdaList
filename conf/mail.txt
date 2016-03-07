@@ -1,0 +1,28 @@
+Hallo $NAME!
+
+Wenn du diese Mail erhältst bedeutet das, dass du mit deinem Konto bei
+der Fachschaft (eventuell sogar deutlich) im Minus bist.
+
+Genauer gesagt ist dein Guthaben aktuell: $BALANCE
+
+Es handelt sich hier generell um ein Prepaid-Konto und wenn zu viele
+Leute im Minus sind, bedeutet das, dass wir keine Getränke bestellen
+können oder wir sie teurer verkaufen müssen. Ich würde dich also bitten,
+fluchs wieder etwas einzuzahlen.
+
+Du kannst uns natürlich auch einfach etwas überweisen. Kontoverbindung:
+
+Kontoinhaber
+BIC:  foo
+IBAN: bar
+Bank
+
+Vergesst bitte auch nicht euch auf der Liste in der Fachschaft euer
+entsprechendes Plus unter "Guthaben" zu notieren, damit es nicht zu
+Missverständnissen kommt.
+
+Vielen Dank!
+
+Liebe Grüße,
+   LambdaList, euer automatisiertes Matekonto-Benachrichtigungsprogramm
+   (i.A. für die Fachschaft XYZ)
