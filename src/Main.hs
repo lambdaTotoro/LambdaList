@@ -25,14 +25,14 @@ main = do hSetBuffering stdout NoBuffering
           temp_exists <- doesFileExist "./tmp/tmp_mateliste"
 
           if conf_exists then putStrLn "[+] Konfigurationsdatei gefunden!"
-                         else do putStrLn "[-] Keine Konfigurationsdatei (config.txt) gefunden!"
-                                 createEnvironment 
+                         else do putStrLn "[-] Keine Konfigurationsdatei (./conf/config.txt) gefunden!"
+                                 createEnvironment
 
           if list_exists then putStrLn "[+] Benutzerliste gefunden!"
-                         else do putStrLn "[-] Keine Benutzerliste (mateliste.txt) gefunden!"
+                         else do putStrLn "[-] Keine Benutzerliste (.conf/mateliste.txt) gefunden!"
 
           if mail_exists then putStrLn "[+] Mailtext für Erinnerungsmails gefunden!"
-                         else putStrLn "[-] Keinen Mailtext für Erinnerungsmails (mail.txt) gefunden!" >> exitFailure
+                         else putStrLn "[-] Keinen Mailtext für Erinnerungsmails (.conf/mail.txt) gefunden!" >> exitFailure
 
           if temp_exists then do putStrLn "\n~~ Temporären Dateien gefunden! ~~"
                                  cont <- question "von vorherigem Speicherstand fortsetzen?"

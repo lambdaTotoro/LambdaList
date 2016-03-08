@@ -20,31 +20,29 @@ question str = do putStr (str ++ " [j/n]: ")
                        _   -> question str
 
 createEnvironment :: IO ()
-createEnvironment = do putStrLn ""
-                       putStrLn "(in this case please enter \"create\" at the prompt), or you can quit"
-                       putStrLn "now and write one offline (for this, please enter \"quit\").\n"
+createEnvironment = do putStrLn "\n    Sie können nun entweder eine neue Konfigurationsdatei live (hier im Programm)"
+                       putStrLn "    angeleitet erstellen oder das Programm beenden und die Datei offline schreiben."
                        loop
  where
     loop :: IO ()
-    loop = do putStr "\nWie wollen Sie fortfahren? "
+    loop = do putStr "\n    Wie wollen Sie fortfahren (\"erstellen\" oder \"beenden\")? "
               choice <- getLine
               case choice of
-                   "erstellen" -> do putStrLn "\nErstellung der Konfigurationsdatei:\n"
-                                     putStr "Bitte geben Sie die Hostadresse des Mailservers an: "                      ; hst <- getLine
-                                     putStr "Bitte geben Sie die Absenderadresse für Mails an: "                        ; frm <- getLine
-                                     putStr "Bitte geben Sie eine CC-Adresse für Mails an (optional): "                 ; cca <- getLine
-                                     putStr "Bitte geben Sie eine Betreffzeile für Erinnerungsmails an: "               ; sbj <- getLine
-                                     putStr "Bitte geben Sie eine Grenze (in Tagen) für Inaktivitätserkennung an: "     ; ina <- getLine
-                                     putStr "Bitte geben Sie eine negative Grenze (in Cents) für rote Markierung an: "  ; tlw <- getLine
-                                     putStr "Bitte geben Sie eine negative Grenze (in Cents) für Erinnerungsmails an: " ; tlr <- getLine
-                                     putStr "Bitte geben Sie eine Grenze (in Cents) für positive Sonderbehandlung an: " ; tbn <- getLine
+                   "erstellen" -> do putStrLn "\n    Erstellung der Konfigurationsdatei:\n"
+                                     putStr "    Bitte geben Sie die Hostadresse des Mailservers an: "                      ; hst <- getLine
+                                     putStr "    Bitte geben Sie die Absenderadresse für Mails an: "                        ; frm <- getLine
+                                     putStr "    Bitte geben Sie eine CC-Adresse für Mails an (optional): "                 ; cca <- getLine
+                                     putStr "    Bitte geben Sie eine Betreffzeile für Erinnerungsmails an: "               ; sbj <- getLine
+                                     putStr "    Bitte geben Sie eine Grenze (in Tagen) für Inaktivitätserkennung an: "     ; ina <- getLine
+                                     putStr "    Bitte geben Sie eine negative Grenze (in Cents) für rote Markierung an: "  ; tlw <- getLine
+                                     putStr "    Bitte geben Sie eine negative Grenze (in Cents) für Erinnerungsmails an: " ; tlr <- getLine
+                                     putStr "    Bitte geben Sie eine Grenze (in Cents) für positive Sonderbehandlung an: " ; tbn <- getLine
                                      createDirectoryIfMissing True "./conf"
                                      let configfile = unlines [hst,frm,cca,sbj,ina,tlw,tlr,tbn]
                                      writeFile "./conf/config.txt" configfile
-                                     putStrLn "\nKonfigurationsdateierstellung abgeschlossen!"
-                   "beenden"   -> do putStrLn ""
-                                     exitSuccess
-                   _           -> putStrLn "\nEingabe nicht erkannt.\n" >> loop
+                                     putStrLn "\n    Konfigurationsdateierstellung abgeschlossen!"
+                   "beenden"   -> putStrLn "\n    Eingabe erkannt. Programm wird jetzt beendet." >> exitSuccess
+                   _           -> putStrLn "    ~~> Eingabe nicht erkannt." >> loop
 
 interactionLoop :: LambdaList ()
 interactionLoop = undefined
