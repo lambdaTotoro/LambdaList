@@ -124,7 +124,7 @@ writeFiles trinker c = let sortedTrinker = sort trinker
 
                               -- Creating new files!
                               writeFile   "mateliste.txt" $ unlines $ map show sortedTrinker
-                              writeFile   "mateliste.tex" $ unlines $ [latexHeader] ++ (map (toLaTeX c)) sortedTrinker ++ [latexFooter]
+                              writeFile   "mateliste.tex" $ unlines $ [latexHeader] ++ (map (toLaTeX c)) (zip [1..] sortedTrinker) ++ [latexFooter]
 
                               setFileMode "mateliste.txt" stdFileMode
                               setFileMode "mateliste.tex" stdFileMode
@@ -134,10 +134,11 @@ writeFiles trinker c = let sortedTrinker = sort trinker
                               sendAllMails sortedTrinker c
                               putStrLn  "Das Programm wird hiermit beendet. Ich hoffe es ist alles zu Ihrer Zufriedenheit. Bis zum nächsten Mal! :-)"
 
-toLaTeX :: Config -> Trinker -> String
-toLaTeX conf (Trinker nm gb@(Guthaben b) _ _ _)
-    | b < (grenze conf) = "\\rowcolor{dunkelgrau}\n" ++ latexRow
-    | b < 0             = "\\rowcolor{hellgrau}\n"   ++ latexRow
+toLaTeX :: Config -> (Int, Trinker) -> String
+toLaTeX conf (num, Trinker nm gb@(Guthaben b) _ _ _)
+    | b < (grenze conf) = "\\rowcolor{dunkelrot}\n" ++ latexRow
+    | b < 0             = "\\rowcolor{hellrot}\n"   ++ latexRow
+    | even num          = "\\rowcolor{hellgrau}\n"  ++ latexRow
     | otherwise         =                              latexRow
       where
         latexRow :: String
@@ -149,6 +150,7 @@ latexHeader = "\\documentclass[a4paper,10pt,landscape]{article}\n\\usepackage[ut
               ++ "\\usepackage{color}\n\\usepackage{colortbl}\n\\usepackage{geometry}"
               ++ "\n\\geometry{a4paper,left=0mm,right=0mm, top=0.5cm, bottom=0.75cm}"
               ++ "\n\n\\definecolor{dunkelgrau}{rgb}{0.6,0.6,0.6}\n\\definecolor{hellgrau}{rgb}{0.8,0.8,0.8}\n"
+              ++ "\n\n\\definecolor{dunkelrot}{rgb}{0.75,0.15,0.15}\n\\definecolor{hellrot}{rgb}{1.0,0.3,0.3}\n"
               ++ "\n\\begin{document}\n\\begin{longtable}{|l|p{3cm}|p{5cm}|l|l|p{2cm}|p{2cm}|p{2cm}|}\n\\hline"
               ++ "\n\\textbf{Login} & Guthaben & Club Mate (0,90 \\euro) & Cola \\slash\\ Brause (0,70 \\euro)"
               ++ "& Schokor. (0,50 \\euro) & 0,20 \\euro & 0,10 \\euro & 0,05 \\euro\\\\\n\\hline\n\\hline\n\\endhead\n"
